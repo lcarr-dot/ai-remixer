@@ -150,16 +150,16 @@ export default function Home() {
   };
 
   return (
-    <div className="h-screen bg-background classic-pattern overflow-hidden flex flex-col">
+    <div className="h-screen bg-background classic-pattern flex flex-col overflow-hidden">
       {/* Ambient background effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-900/20 blur-[120px]" />
         <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-yellow-900/10 blur-[120px]" />
       </div>
 
-      <div className="relative z-10 flex-1 flex flex-col max-w-5xl mx-auto px-4 py-3 w-full">
+      <div className="relative z-10 flex flex-col h-full max-w-5xl mx-auto px-4 py-3 w-full">
         {/* Header */}
-        <header className="text-center mb-3">
+        <header className="text-center mb-2 shrink-0">
           {/* Navigation Buttons */}
           <div className="flex justify-end gap-2 mb-2">
             <Link href="/dashboard" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-gold/20 text-gold/70 hover:text-gold hover:border-gold/40 transition-all text-xs">
@@ -189,151 +189,145 @@ export default function Home() {
           </h1>
         </header>
 
-        {/* Main Grid - 2 rows */}
-        <div className="flex-1 grid grid-rows-2 gap-3 min-h-0">
-          {/* Top Row: Drop File (left) + Your Content (right) */}
-          <div className="grid grid-cols-3 gap-3 min-h-0">
-            {/* Drop File - Left */}
-            <div
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onClick={() => fileInputRef.current?.click()}
-              className={`upload-zone rounded-xl p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center ${
-                isDragging ? "drag-over" : ""
-              }`}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls,.csv,.txt"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-              <span className="text-3xl mb-2 opacity-60">📄</span>
-              <p className="text-cream/80 font-medium text-sm">
-                {fileName || "Drop file here"}
-              </p>
-              <p className="text-xs text-muted mt-1">Excel, CSV, or Text</p>
-            </div>
-
-            {/* Your Content - Right (spans 2 columns) */}
-            <div className="col-span-2 bg-surface rounded-xl border border-border/50 p-3 flex flex-col min-h-0 elegant-border">
-              <div className="flex justify-between items-center mb-2">
-                <label className="text-xs font-medium text-gold/80 uppercase tracking-wider">
-                  Your Content
-                </label>
-                {content && (
-                  <button onClick={clearAll} className="text-xs text-gold/60 hover:text-gold">
-                    Clear
-                  </button>
-                )}
-              </div>
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Paste your investment content, research notes, or market analysis..."
-                className="flex-1 w-full bg-surface-light rounded-lg p-3 text-sm text-cream placeholder-muted/50 border border-border/30 focus:border-gold/50 focus:outline-none resize-none"
-              />
-              <span className="text-xs text-muted mt-2">{content.length.toLocaleString()} chars</span>
-            </div>
+        {/* Main Grid */}
+        <div className="flex-1 grid grid-cols-3 grid-rows-2 gap-3 min-h-0">
+          {/* Drop File - Top Left */}
+          <div
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onClick={() => fileInputRef.current?.click()}
+            className={`upload-zone rounded-xl p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center ${
+              isDragging ? "drag-over" : ""
+            }`}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv,.txt"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <span className="text-3xl mb-2 opacity-60">📄</span>
+            <p className="text-cream/80 font-medium text-sm">
+              {fileName || "Drop file here"}
+            </p>
+            <p className="text-xs text-muted mt-1">Excel, CSV, or Text</p>
           </div>
 
-          {/* Bottom Row: Formats + Remix (left) + Output (right) */}
-          <div className="grid grid-cols-3 gap-3 min-h-0">
-            {/* Formats + Remix - Left */}
-            <div className="bg-surface rounded-xl border border-border/50 p-3 flex flex-col">
-              <label className="text-xs font-medium text-gold/80 uppercase tracking-wider mb-2">
-                Output Format
+          {/* Your Content - Top Right (spans 2 columns) */}
+          <div className="col-span-2 bg-surface rounded-xl border border-border/50 p-3 flex flex-col elegant-border overflow-hidden">
+            <div className="flex justify-between items-center mb-2 shrink-0">
+              <label className="text-xs font-medium text-gold/80 uppercase tracking-wider">
+                Your Content
               </label>
-              <div className="flex-1 flex flex-col gap-2">
-                {formats.map((format) => (
-                  <button
-                    key={format.id}
-                    onClick={() => setSelectedFormat(format.id)}
-                    className={`flex-1 p-2 rounded-lg border text-left transition-all flex items-center gap-3 ${
-                      selectedFormat === format.id
-                        ? "bg-gold/10 border-gold/50 text-cream"
-                        : "bg-surface-light border-border/30 text-muted hover:border-gold/30"
-                    }`}
-                  >
-                    <span className="text-xl">{format.icon}</span>
-                    <div>
-                      <span className="text-sm font-medium block">{format.label}</span>
-                      <span className="text-xs opacity-70">{format.description}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-              <button
-                onClick={handleRemix}
-                disabled={isLoading || !content.trim()}
-                className={`mt-3 w-full py-3 rounded-lg font-semibold text-sm transition-all uppercase tracking-wide ${
-                  isLoading
-                    ? "bg-gold/50 cursor-not-allowed text-forest"
-                    : content.trim()
-                    ? "bg-gradient-to-r from-gold to-gold-light hover:opacity-90 text-forest"
-                    : "bg-surface-light text-muted cursor-not-allowed"
-                }`}
-              >
-                {isLoading ? "Remixing..." : "✦ Remix"}
-              </button>
-              {error && (
-                <div className="mt-2 p-2 rounded-lg bg-red-900/20 border border-red-500/30 text-red-400 text-xs">
-                  {error}
-                </div>
+              {content && (
+                <button onClick={clearAll} className="text-xs text-gold/60 hover:text-gold">
+                  Clear
+                </button>
               )}
             </div>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="Paste your investment content, research notes, or market analysis..."
+              className="flex-1 w-full bg-surface-light rounded-lg p-3 text-sm text-cream placeholder-muted/50 border border-border/30 focus:border-gold/50 focus:outline-none resize-none min-h-0"
+            />
+            <span className="text-xs text-muted mt-2 shrink-0">{content.length.toLocaleString()} chars</span>
+          </div>
 
-            {/* Output - Right (spans 2 columns) */}
-            <div className="col-span-2 bg-surface rounded-xl border border-border/50 p-3 flex flex-col min-h-0 elegant-border">
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-medium text-gold/80 uppercase tracking-wider">
-                  Output
-                </label>
-                {result && (
-                  <button
-                    onClick={copyToClipboard}
-                    className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all ${
-                      copied
-                        ? "bg-green-900/30 text-green-400"
-                        : "bg-surface-light text-gold/70 hover:text-gold"
-                    }`}
-                  >
-                    {copied ? "✓ Copied" : "Copy"}
-                  </button>
-                )}
-              </div>
-
-              <div className="flex-1 bg-surface-light rounded-lg p-3 border border-border/30 overflow-auto min-h-0">
-                {result ? (
-                  <div className="whitespace-pre-wrap text-cream text-sm leading-relaxed">
-                    {result}
+          {/* Formats + Remix - Bottom Left */}
+          <div className="bg-surface rounded-xl border border-border/50 p-3 flex flex-col overflow-hidden">
+            <label className="text-xs font-medium text-gold/80 uppercase tracking-wider mb-2 shrink-0">
+              Output Format
+            </label>
+            <div className="flex-1 flex flex-col gap-2 min-h-0 overflow-auto">
+              {formats.map((format) => (
+                <button
+                  key={format.id}
+                  onClick={() => setSelectedFormat(format.id)}
+                  className={`p-2 rounded-lg border text-left transition-all flex items-center gap-3 shrink-0 ${
+                    selectedFormat === format.id
+                      ? "bg-gold/10 border-gold/50 text-cream"
+                      : "bg-surface-light border-border/30 text-muted hover:border-gold/30"
+                  }`}
+                >
+                  <span className="text-xl">{format.icon}</span>
+                  <div>
+                    <span className="text-sm font-medium block">{format.label}</span>
+                    <span className="text-xs opacity-70">{format.description}</span>
                   </div>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-center">
-                    <div>
-                      <div className="text-2xl mb-2 opacity-40">✦</div>
-                      <p className="text-muted text-sm">Output appears here</p>
-                    </div>
-                  </div>
-                )}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={handleRemix}
+              disabled={isLoading || !content.trim()}
+              className={`mt-2 w-full py-2.5 rounded-lg font-semibold text-sm transition-all uppercase tracking-wide shrink-0 ${
+                isLoading
+                  ? "bg-gold/50 cursor-not-allowed text-forest"
+                  : content.trim()
+                  ? "bg-gradient-to-r from-gold to-gold-light hover:opacity-90 text-forest"
+                  : "bg-surface-light text-muted cursor-not-allowed"
+              }`}
+            >
+              {isLoading ? "Remixing..." : "✦ Remix"}
+            </button>
+            {error && (
+              <div className="mt-2 p-2 rounded-lg bg-red-900/20 border border-red-500/30 text-red-400 text-xs shrink-0">
+                {error}
               </div>
+            )}
+          </div>
 
+          {/* Output - Bottom Right (spans 2 columns) */}
+          <div className="col-span-2 bg-surface rounded-xl border border-border/50 p-3 flex flex-col elegant-border overflow-hidden">
+            <div className="flex items-center justify-between mb-2 shrink-0">
+              <label className="text-xs font-medium text-gold/80 uppercase tracking-wider">
+                Output
+              </label>
               {result && (
-                <div className="mt-2 pt-2 border-t border-border/30 flex items-center justify-between text-xs text-muted">
-                  <span>{result.length.toLocaleString()} chars</span>
-                  <span className="text-gold/60">
-                    {formats.find((f) => f.id === selectedFormat)?.label}
-                  </span>
+                <button
+                  onClick={copyToClipboard}
+                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all ${
+                    copied
+                      ? "bg-green-900/30 text-green-400"
+                      : "bg-surface-light text-gold/70 hover:text-gold"
+                  }`}
+                >
+                  {copied ? "✓ Copied" : "Copy"}
+                </button>
+              )}
+            </div>
+
+            <div className="flex-1 bg-surface-light rounded-lg p-3 border border-border/30 overflow-auto min-h-0">
+              {result ? (
+                <div className="whitespace-pre-wrap text-cream text-sm leading-relaxed break-words">
+                  {result}
+                </div>
+              ) : (
+                <div className="h-full flex items-center justify-center text-center">
+                  <div>
+                    <div className="text-2xl mb-2 opacity-40">✦</div>
+                    <p className="text-muted text-sm">Output appears here</p>
+                  </div>
                 </div>
               )}
             </div>
+
+            {result && (
+              <div className="mt-2 pt-2 border-t border-border/30 flex items-center justify-between text-xs text-muted shrink-0">
+                <span>{result.length.toLocaleString()} chars</span>
+                <span className="text-gold/60">
+                  {formats.find((f) => f.id === selectedFormat)?.label}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Footer */}
-        <footer className="text-center py-2">
+        <footer className="text-center py-1 shrink-0">
           <p className="tracking-widest uppercase text-gold/30 text-xs">GGinvestments</p>
         </footer>
       </div>
