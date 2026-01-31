@@ -150,41 +150,32 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-background classic-pattern">
+    <div className="h-screen bg-background classic-pattern overflow-hidden flex flex-col">
       {/* Ambient background effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-900/20 blur-[120px]" />
         <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-yellow-900/10 blur-[120px]" />
       </div>
 
-      <div className="relative z-10 max-w-6xl mx-auto px-6 py-12">
+      <div className="relative z-10 flex-1 flex flex-col max-w-5xl mx-auto px-4 py-3 w-full">
         {/* Header */}
-        <header className="text-center mb-16 opacity-0 animate-fade-in-up">
+        <header className="text-center mb-3">
           {/* Navigation Buttons */}
-          <div className="flex justify-end gap-3 mb-4">
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-surface border border-gold/20 text-gold/70 hover:text-gold hover:border-gold/40 transition-all text-sm"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex justify-end gap-2 mb-2">
+            <Link href="/dashboard" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-gold/20 text-gold/70 hover:text-gold hover:border-gold/40 transition-all text-xs">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
               Dashboard
             </Link>
-            <Link
-              href="/socials"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-surface border border-gold/20 text-gold/70 hover:text-gold hover:border-gold/40 transition-all text-sm"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <Link href="/socials" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-gold/20 text-gold/70 hover:text-gold hover:border-gold/40 transition-all text-xs">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
               </svg>
-              My Socials
+              Socials
             </Link>
-            <Link
-              href="/admin"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-surface border border-gold/20 text-gold/70 hover:text-gold hover:border-gold/40 transition-all text-sm"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <Link href="/admin" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-gold/20 text-gold/70 hover:text-gold hover:border-gold/40 transition-all text-xs">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
@@ -192,29 +183,23 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-surface/50 border border-gold/20 mb-6">
-            <span className="w-2 h-2 rounded-full bg-gold animate-pulse" />
-            <span className="text-sm text-gold/80 tracking-widest uppercase">Investment Content</span>
-          </div>
-          <h1 className="text-5xl md:text-6xl font-bold mb-4 tracking-tight">
+          <h1 className="text-2xl font-bold tracking-tight">
             <span className="gold-text">GGinvestments</span>
             <span className="text-cream/90 font-light"> Remixer</span>
           </h1>
-          <p className="text-xl text-muted max-w-2xl mx-auto font-light tracking-wide">
-            Transform your investment insights into viral social content
-          </p>
         </header>
 
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Input Section */}
-          <div className="space-y-6 opacity-0 animate-fade-in-up stagger-1">
-            {/* File Upload Zone */}
+        {/* Main Grid - 2 rows */}
+        <div className="flex-1 grid grid-rows-2 gap-3 min-h-0">
+          {/* Top Row: Drop File (left) + Your Content (right) */}
+          <div className="grid grid-cols-3 gap-3 min-h-0">
+            {/* Drop File - Left */}
             <div
               onDrop={handleDrop}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onClick={() => fileInputRef.current?.click()}
-              className={`upload-zone rounded-2xl p-8 text-center cursor-pointer transition-all ${
+              className={`upload-zone rounded-xl p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center ${
                 isDragging ? "drag-over" : ""
               }`}
             >
@@ -225,170 +210,119 @@ export default function Home() {
                 onChange={handleFileSelect}
                 className="hidden"
               />
-              <div className="text-4xl mb-3 opacity-60">📄</div>
-              <p className="text-cream/80 font-medium mb-1">
-                {fileName || "Drop your file here"}
+              <span className="text-3xl mb-2 opacity-60">📄</span>
+              <p className="text-cream/80 font-medium text-sm">
+                {fileName || "Drop file here"}
               </p>
-              <p className="text-sm text-muted">
-                Excel, CSV, or Text files
-              </p>
+              <p className="text-xs text-muted mt-1">Excel, CSV, or Text</p>
             </div>
 
-            {/* Text Input */}
-            <div className="bg-surface rounded-2xl border border-border/50 p-6 elegant-border">
-              <label className="block text-sm font-medium text-gold/80 mb-3 uppercase tracking-wider">
-                Your Content
-              </label>
+            {/* Your Content - Right (spans 2 columns) */}
+            <div className="col-span-2 bg-surface rounded-xl border border-border/50 p-3 flex flex-col min-h-0 elegant-border">
+              <div className="flex justify-between items-center mb-2">
+                <label className="text-xs font-medium text-gold/80 uppercase tracking-wider">
+                  Your Content
+                </label>
+                {content && (
+                  <button onClick={clearAll} className="text-xs text-gold/60 hover:text-gold">
+                    Clear
+                  </button>
+                )}
+              </div>
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="Paste your investment content, research notes, or market analysis..."
-                className="w-full h-48 bg-surface-light rounded-xl p-4 text-cream placeholder-muted/50 border border-border/30 focus:border-gold/50 focus:outline-none focus:ring-2 focus:ring-gold/20 resize-none transition-all"
+                className="flex-1 w-full bg-surface-light rounded-lg p-3 text-sm text-cream placeholder-muted/50 border border-border/30 focus:border-gold/50 focus:outline-none resize-none"
               />
-              <div className="flex justify-between items-center mt-3">
-                <span className="text-sm text-muted">
-                  {content.length.toLocaleString()} characters
-                </span>
-                {content && (
-                  <button
-                    onClick={clearAll}
-                    className="text-sm text-gold/60 hover:text-gold transition-colors"
-                  >
-                    Clear all
-                  </button>
-                )}
-              </div>
+              <span className="text-xs text-muted mt-2">{content.length.toLocaleString()} chars</span>
             </div>
+          </div>
 
-            {/* Format Selector */}
-            <div className="bg-surface rounded-2xl border border-border/50 p-6">
-              <label className="block text-sm font-medium text-gold/80 mb-4 uppercase tracking-wider">
+          {/* Bottom Row: Formats + Remix (left) + Output (right) */}
+          <div className="grid grid-cols-3 gap-3 min-h-0">
+            {/* Formats + Remix - Left */}
+            <div className="bg-surface rounded-xl border border-border/50 p-3 flex flex-col">
+              <label className="text-xs font-medium text-gold/80 uppercase tracking-wider mb-2">
                 Output Format
               </label>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="flex-1 flex flex-col gap-2">
                 {formats.map((format) => (
                   <button
                     key={format.id}
                     onClick={() => setSelectedFormat(format.id)}
-                    className={`relative p-4 rounded-xl border text-center transition-all group ${
+                    className={`flex-1 p-2 rounded-lg border text-left transition-all flex items-center gap-3 ${
                       selectedFormat === format.id
                         ? "bg-gold/10 border-gold/50 text-cream"
-                        : "bg-surface-light border-border/30 text-muted hover:border-gold/30 hover:text-cream"
+                        : "bg-surface-light border-border/30 text-muted hover:border-gold/30"
                     }`}
                   >
-                    <span className="text-2xl mb-2 block">{format.icon}</span>
-                    <span className="font-medium block text-sm">{format.label}</span>
-                    <span className="text-xs opacity-70">{format.description}</span>
-                    {selectedFormat === format.id && (
-                      <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-gold" />
-                    )}
+                    <span className="text-xl">{format.icon}</span>
+                    <div>
+                      <span className="text-sm font-medium block">{format.label}</span>
+                      <span className="text-xs opacity-70">{format.description}</span>
+                    </div>
                   </button>
                 ))}
               </div>
+              <button
+                onClick={handleRemix}
+                disabled={isLoading || !content.trim()}
+                className={`mt-3 w-full py-3 rounded-lg font-semibold text-sm transition-all uppercase tracking-wide ${
+                  isLoading
+                    ? "bg-gold/50 cursor-not-allowed text-forest"
+                    : content.trim()
+                    ? "bg-gradient-to-r from-gold to-gold-light hover:opacity-90 text-forest"
+                    : "bg-surface-light text-muted cursor-not-allowed"
+                }`}
+              >
+                {isLoading ? "Remixing..." : "✦ Remix"}
+              </button>
+              {error && (
+                <div className="mt-2 p-2 rounded-lg bg-red-900/20 border border-red-500/30 text-red-400 text-xs">
+                  {error}
+                </div>
+              )}
             </div>
 
-            {/* Remix Button */}
-            <button
-              onClick={handleRemix}
-              disabled={isLoading || !content.trim()}
-              className={`w-full py-4 px-6 rounded-xl font-semibold text-lg transition-all uppercase tracking-wider ${
-                isLoading
-                  ? "bg-gold/50 cursor-not-allowed pulse-gold text-forest"
-                  : content.trim()
-                  ? "bg-gradient-to-r from-gold via-gold-light to-gold hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] text-forest"
-                  : "bg-surface-light text-muted cursor-not-allowed"
-              }`}
-            >
-              {isLoading ? (
-                <span className="flex items-center justify-center gap-3">
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                      fill="none"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
-                  Crafting your content...
-                </span>
-              ) : (
-                "✦ Remix Content"
-              )}
-            </button>
-
-            {error && (
-              <div className="p-4 rounded-xl bg-red-900/20 border border-red-500/30 text-red-400 text-sm">
-                {error}
-              </div>
-            )}
-          </div>
-
-          {/* Output Section */}
-          <div className="opacity-0 animate-fade-in-up stagger-2">
-            <div className="bg-surface rounded-2xl border border-border/50 p-6 h-full min-h-[500px] flex flex-col elegant-border">
-              <div className="flex items-center justify-between mb-4">
-                <label className="text-sm font-medium text-gold/80 uppercase tracking-wider">
-                  Remixed Content
+            {/* Output - Right (spans 2 columns) */}
+            <div className="col-span-2 bg-surface rounded-xl border border-border/50 p-3 flex flex-col min-h-0 elegant-border">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-medium text-gold/80 uppercase tracking-wider">
+                  Output
                 </label>
                 {result && (
                   <button
                     onClick={copyToClipboard}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all ${
                       copied
-                        ? "bg-green-900/30 text-green-400 border border-green-500/30"
-                        : "bg-surface-light text-gold/70 hover:text-gold border border-gold/20 hover:border-gold/40"
+                        ? "bg-green-900/30 text-green-400"
+                        : "bg-surface-light text-gold/70 hover:text-gold"
                     }`}
                   >
-                    {copied ? (
-                      <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                        Copy
-                      </>
-                    )}
+                    {copied ? "✓ Copied" : "Copy"}
                   </button>
                 )}
               </div>
 
-              <div className="flex-1 bg-surface-light rounded-xl p-4 border border-border/30 overflow-auto">
+              <div className="flex-1 bg-surface-light rounded-lg p-3 border border-border/30 overflow-auto min-h-0">
                 {result ? (
-                  <div className="whitespace-pre-wrap text-cream leading-relaxed">
+                  <div className="whitespace-pre-wrap text-cream text-sm leading-relaxed">
                     {result}
                   </div>
                 ) : (
                   <div className="h-full flex items-center justify-center text-center">
-                    <div className="max-w-xs">
-                      <div className="text-4xl mb-4 opacity-40">✦</div>
-                      <p className="text-muted font-light">
-                        Your remixed content will appear here
-                      </p>
-                      <p className="text-sm text-muted/70 mt-2">
-                        Upload a file or paste content to begin
-          </p>
-        </div>
+                    <div>
+                      <div className="text-2xl mb-2 opacity-40">✦</div>
+                      <p className="text-muted text-sm">Output appears here</p>
+                    </div>
                   </div>
                 )}
               </div>
 
               {result && (
-                <div className="mt-4 pt-4 border-t border-border/30 flex items-center justify-between text-sm text-muted">
-                  <span>{result.length.toLocaleString()} characters</span>
+                <div className="mt-2 pt-2 border-t border-border/30 flex items-center justify-between text-xs text-muted">
+                  <span>{result.length.toLocaleString()} chars</span>
                   <span className="text-gold/60">
                     {formats.find((f) => f.id === selectedFormat)?.label}
                   </span>
@@ -399,8 +333,8 @@ export default function Home() {
         </div>
 
         {/* Footer */}
-        <footer className="mt-16 text-center text-sm text-muted opacity-0 animate-fade-in-up stagger-3">
-          <p className="tracking-widest uppercase text-gold/40">GGinvestments</p>
+        <footer className="text-center py-2">
+          <p className="tracking-widest uppercase text-gold/30 text-xs">GGinvestments</p>
         </footer>
       </div>
     </div>
