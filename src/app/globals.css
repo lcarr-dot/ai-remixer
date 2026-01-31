@@ -1,14 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0c0c0f;
-  --foreground: #e8e8ed;
-  --accent: #6366f1;
-  --accent-light: #818cf8;
-  --surface: #16161d;
-  --surface-light: #1e1e28;
-  --border: #2a2a38;
-  --muted: #71717a;
+  --background: #0f1410;
+  --foreground: #f5f1e8;
+  --accent: #c9a962;
+  --accent-light: #d4bc7a;
+  --surface: #1a1f1b;
+  --surface-light: #232a24;
+  --border: #2f3830;
+  --muted: #8a9189;
+  --gold: #c9a962;
+  --gold-light: #e0c987;
+  --cream: #f5f1e8;
+  --forest: #1e2a1f;
+  --emerald: #2d4a32;
 }
 
 @theme inline {
@@ -20,6 +25,8 @@
   --color-surface-light: var(--surface-light);
   --color-border: var(--border);
   --color-muted: var(--muted);
+  --color-gold: var(--gold);
+  --color-cream: var(--cream);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -49,50 +56,50 @@ body {
   background: var(--muted);
 }
 
-/* Gradient text utility */
-.gradient-text {
-  background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+/* Gold gradient text */
+.gold-text {
+  background: linear-gradient(135deg, #c9a962 0%, #e0c987 50%, #c9a962 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-/* Animated gradient border */
-.gradient-border {
+/* Elegant border */
+.elegant-border {
   position: relative;
 }
 
-.gradient-border::before {
+.elegant-border::before {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
+  background: linear-gradient(135deg, #c9a962, #e0c987, #c9a962);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  opacity: 0.5;
+  opacity: 0.4;
   transition: opacity 0.3s ease;
   pointer-events: none;
 }
 
-.gradient-border:hover::before {
-  opacity: 1;
+.elegant-border:hover::before {
+  opacity: 0.8;
 }
 
 /* Pulse animation for loading */
-@keyframes pulse-glow {
+@keyframes pulse-gold {
   0%, 100% {
-    box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 0 20px rgba(201, 169, 98, 0.3);
   }
   50% {
-    box-shadow: 0 0 40px rgba(99, 102, 241, 0.6);
+    box-shadow: 0 0 40px rgba(201, 169, 98, 0.6);
   }
 }
 
-.pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
+.pulse-gold {
+  animation: pulse-gold 2s ease-in-out infinite;
 }
 
 /* Fade in animation */
@@ -115,5 +122,22 @@ body {
 .stagger-1 { animation-delay: 0.1s; }
 .stagger-2 { animation-delay: 0.2s; }
 .stagger-3 { animation-delay: 0.3s; }
-.stagger-4 { animation-delay: 0.4s; }
-.stagger-5 { animation-delay: 0.5s; }
+
+/* Upload zone styling */
+.upload-zone {
+  border: 2px dashed var(--border);
+  transition: all 0.3s ease;
+}
+
+.upload-zone:hover,
+.upload-zone.drag-over {
+  border-color: var(--gold);
+  background: rgba(201, 169, 98, 0.05);
+}
+
+/* Classic pattern overlay */
+.classic-pattern {
+  background-image: 
+    radial-gradient(circle at 25% 25%, rgba(201, 169, 98, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 75% 75%, rgba(201, 169, 98, 0.03) 0%, transparent 50%);
+}

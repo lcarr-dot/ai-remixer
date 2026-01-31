@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Content Remixer | Transform Your Writing for Social Media",
-  description: "AI-powered content remixer that transforms your blog posts and writing into engaging tweets, LinkedIn posts, threads, and more.",
+  title: "GGinvestments Remixer | Transform Investment Content",
+  description: "Transform your investment insights into viral tweets, YouTube hooks, and TikTok content. Old money energy for the modern investor.",
 };
 
 export default function RootLayout({
