@@ -138,7 +138,7 @@ export default function AdminPage() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.xlsx,.xls,.csv,.txt"
+              accept=".xlsx,.xls,.csv,.txt"
               onChange={handleUpload}
               className="hidden"
               id="file-upload"
@@ -155,7 +155,7 @@ export default function AdminPage() {
                 <>
                   <span className="text-2xl block mb-1">📤</span>
                   <span className="text-cream/80">Click to upload</span>
-                  <span className="text-sm text-muted block">PDF, Excel, CSV, or Text</span>
+                  <span className="text-sm text-muted block">Excel, CSV, or Text</span>
                 </>
               )}
             </label>

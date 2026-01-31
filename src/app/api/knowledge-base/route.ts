@@ -7,10 +7,8 @@ async function extractText(buffer: Buffer, fileName: string): Promise<string> {
   const lowerName = fileName.toLowerCase();
   
   if (lowerName.endsWith(".pdf")) {
-    // Dynamic import for pdf-parse to avoid build issues
-    const pdfParse = (await import("pdf-parse")).default;
-    const pdfData = await pdfParse(buffer);
-    return pdfData.text;
+    // PDF support temporarily disabled due to serverless compatibility
+    throw new Error("PDF support coming soon. Please use Excel, CSV, or TXT files for now.");
   } else if (
     lowerName.endsWith(".xlsx") ||
     lowerName.endsWith(".xls") ||
@@ -53,7 +51,6 @@ export async function GET() {
     return NextResponse.json({ items });
   } catch (error) {
     console.error("Error listing knowledge base:", error);
-    // Return empty if blob storage not configured
     return NextResponse.json({ items: [] });
   }
 }
@@ -93,7 +90,7 @@ export async function POST(request: NextRequest) {
     const data = {
       originalName: file.name,
       type: fileType,
-      text: text.substring(0, 50000), // Limit to 50k chars per document
+      text: text.substring(0, 50000),
       uploadedAt: new Date().toISOString(),
     };
 
@@ -105,10 +102,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error uploading to knowledge base:", error);
-    return NextResponse.json(
-      { error: "Failed to upload document. Make sure BLOB_READ_WRITE_TOKEN is configured." },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : "Failed to upload document.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 

@@ -18,10 +18,11 @@ export async function POST(request: NextRequest) {
     let text = "";
 
     if (fileName.endsWith(".pdf")) {
-      // Dynamic import for pdf-parse to avoid build issues
-      const pdfParse = (await import("pdf-parse")).default;
-      const pdfData = await pdfParse(buffer);
-      text = pdfData.text;
+      // PDF support temporarily disabled due to serverless compatibility
+      return NextResponse.json(
+        { error: "PDF support coming soon. Please use Excel, CSV, or TXT files for now." },
+        { status: 400 }
+      );
     } else if (
       fileName.endsWith(".xlsx") ||
       fileName.endsWith(".xls") ||
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
       text = buffer.toString("utf-8");
     } else {
       return NextResponse.json(
-        { error: "Unsupported file type. Please upload PDF, Excel, CSV, or TXT files." },
+        { error: "Unsupported file type. Please upload Excel, CSV, or TXT files." },
         { status: 400 }
       );
     }

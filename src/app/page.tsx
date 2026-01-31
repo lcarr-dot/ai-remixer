@@ -203,7 +203,7 @@ export default function Home() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".pdf,.xlsx,.xls,.csv,.txt"
+                accept=".xlsx,.xls,.csv,.txt"
                 onChange={handleFileSelect}
                 className="hidden"
               />
@@ -212,7 +212,7 @@ export default function Home() {
                 {fileName || "Drop your file here"}
               </p>
               <p className="text-sm text-muted">
-                PDF, Excel, CSV, or Text files
+                Excel, CSV, or Text files
               </p>
             </div>
 
