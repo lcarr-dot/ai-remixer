@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import pdf from "pdf-parse";
 import * as XLSX from "xlsx";
 
 export async function POST(request: NextRequest) {
@@ -19,8 +18,9 @@ export async function POST(request: NextRequest) {
     let text = "";
 
     if (fileName.endsWith(".pdf")) {
-      // Parse PDF
-      const pdfData = await pdf(buffer);
+      // Dynamic import for pdf-parse to avoid build issues
+      const pdfParse = (await import("pdf-parse")).default;
+      const pdfData = await pdfParse(buffer);
       text = pdfData.text;
     } else if (
       fileName.endsWith(".xlsx") ||

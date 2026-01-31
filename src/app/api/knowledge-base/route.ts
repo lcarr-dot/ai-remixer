@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put, list, del } from "@vercel/blob";
-import pdf from "pdf-parse";
 import * as XLSX from "xlsx";
 
 // Helper to extract text from files
@@ -8,7 +7,9 @@ async function extractText(buffer: Buffer, fileName: string): Promise<string> {
   const lowerName = fileName.toLowerCase();
   
   if (lowerName.endsWith(".pdf")) {
-    const pdfData = await pdf(buffer);
+    // Dynamic import for pdf-parse to avoid build issues
+    const pdfParse = (await import("pdf-parse")).default;
+    const pdfData = await pdfParse(buffer);
     return pdfData.text;
   } else if (
     lowerName.endsWith(".xlsx") ||
