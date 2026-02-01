@@ -141,11 +141,20 @@ Return valid JSON only.`;
         }
       }
 
-      // Save updated spreadsheet
+      // Save updated spreadsheet - delete old first, then save new
+      try {
+        const { blobs } = await list({ prefix: `spreadsheet/${userId}/` });
+        for (const blob of blobs) {
+          await del(blob.url);
+        }
+      } catch {
+        // Ignore delete errors
+      }
+      
       await put(
-        `spreadsheet/${userId}/data.json`,
+        `spreadsheet/${userId}/data_${Date.now()}.json`,
         JSON.stringify({ columns, rows: updatedRows }),
-        { access: "public", contentType: "application/json", addRandomSuffix: false }
+        { access: "public", contentType: "application/json" }
       );
 
       return NextResponse.json({ 
@@ -254,11 +263,11 @@ export async function PUT(request: NextRequest) {
       await del(blob.url);
     }
 
-    // Save new spreadsheet data
+    // Save new spreadsheet data with unique timestamp
     await put(
-      `spreadsheet/${userId}/data.json`,
+      `spreadsheet/${userId}/data_${Date.now()}.json`,
       JSON.stringify({ columns, rows }),
-      { access: "public", contentType: "application/json", addRandomSuffix: false }
+      { access: "public", contentType: "application/json" }
     );
 
     return NextResponse.json({ 
