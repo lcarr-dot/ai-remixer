@@ -141,18 +141,17 @@ Return valid JSON only.`;
         }
       }
 
-      // Save updated spreadsheet - delete old first, then save new
-      try {
-        const { blobs } = await list({ prefix: `spreadsheet/${userId}/` });
-        for (const blob of blobs) {
-          await del(blob.url);
-        }
-      } catch {
-        // Ignore delete errors
-      }
+      // Save updated spreadsheet - delete old first, then save new with unique ID
+      const oldBlobs = await list({ prefix: `spreadsheet/${userId}/` });
+      
+      // Delete all old blobs first
+      await Promise.all(oldBlobs.blobs.map(blob => del(blob.url).catch(() => {})));
+      
+      // Generate unique filename with random suffix
+      const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
       
       await put(
-        `spreadsheet/${userId}/data_${Date.now()}.json`,
+        `spreadsheet/${userId}/data_${uniqueId}.json`,
         JSON.stringify({ columns, rows: updatedRows }),
         { access: "public", contentType: "application/json" }
       );
@@ -258,14 +257,14 @@ export async function PUT(request: NextRequest) {
     }
 
     // Delete old spreadsheet data
-    const { blobs } = await list({ prefix: `spreadsheet/${userId}/` });
-    for (const blob of blobs) {
-      await del(blob.url);
-    }
+    const oldBlobs = await list({ prefix: `spreadsheet/${userId}/` });
+    await Promise.all(oldBlobs.blobs.map(blob => del(blob.url).catch(() => {})));
 
-    // Save new spreadsheet data with unique timestamp
+    // Save new spreadsheet data with unique ID
+    const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    
     await put(
-      `spreadsheet/${userId}/data_${Date.now()}.json`,
+      `spreadsheet/${userId}/data_${uniqueId}.json`,
       JSON.stringify({ columns, rows }),
       { access: "public", contentType: "application/json" }
     );
