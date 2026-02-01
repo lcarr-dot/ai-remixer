@@ -40,6 +40,35 @@ async function getSpreadsheetData(userId: string): Promise<{ columns: string[]; 
   }
 }
 
+// Format spreadsheet data for AI context
+function formatDataForAI(columns: string[], rows: Record<string, string>[]): string {
+  if (rows.length === 0) return "No data available.";
+
+  // Create a readable summary
+  let summary = `You have ${rows.length} videos tracked.\n\nColumns: ${columns.join(", ")}\n\n`;
+  
+  // Add all video data
+  summary += "VIDEO DATA:\n";
+  rows.forEach((row, i) => {
+    const parts: string[] = [];
+    columns.forEach(col => {
+      if (row[col] && row[col].trim()) {
+        parts.push(`${col}: ${row[col]}`);
+      }
+    });
+    if (parts.length > 0) {
+      summary += `${i + 1}. ${parts.join(" | ")}\n`;
+    }
+  });
+
+  return summary;
+}
+
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
@@ -47,89 +76,55 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { question, videoScope } = await request.json();
+    const { message, conversationHistory, videoScope } = await request.json();
 
     // Get the actual spreadsheet data
     const spreadsheet = await getSpreadsheetData(userId);
     
     if (!spreadsheet || spreadsheet.rows.length === 0) {
       return NextResponse.json({ 
-        insight: {
-          answer: "No data found. Please upload your spreadsheet in the Storage section first.",
-          patterns: [],
-          topPerformers: [],
-          recommendations: ["Upload your Excel/CSV data in Storage"]
-        }
+        response: "I don't see any data yet! Please upload your content spreadsheet in the Storage section first. Once you do, I can analyze your video performance and help you find patterns.",
       });
     }
 
     // Limit rows based on scope
     const limit = videoScope === "newest" ? 5 : videoScope === "last10" ? 10 : spreadsheet.rows.length;
     const relevantRows = spreadsheet.rows.slice(0, limit);
+    
+    const dataContext = formatDataForAI(spreadsheet.columns, relevantRows);
 
-    // Build context from actual data
-    const dataContext = JSON.stringify({
-      columns: spreadsheet.columns,
-      totalVideos: spreadsheet.rows.length,
-      analyzingVideos: relevantRows.length,
-      data: relevantRows
-    }, null, 2);
+    // Build conversation context
+    const history = (conversationHistory || []) as ChatMessage[];
+    const conversationContext = history.length > 0 
+      ? "\n\nPREVIOUS CONVERSATION:\n" + history.map(m => `${m.role === "user" ? "User" : "You"}: ${m.content}`).join("\n")
+      : "";
 
-    const prompt = `You are analyzing a content creator's video performance data. Look for PATTERNS and INSIGHTS.
+    const systemPrompt = `You are a friendly, conversational content performance analyst. You're helping a creator understand their video data and make better content.
 
-SPREADSHEET DATA:
+YOUR DATA ACCESS:
 ${dataContext}
 
-USER QUESTION: "${question || "What patterns do you see in my content performance?"}"
+IMPORTANT GUIDELINES:
+- Be conversational and natural - talk like a helpful friend, not a robot
+- Reference SPECIFIC videos, hooks, view counts from the data above
+- If they ask about something, give a direct answer first, then explain
+- If they say something vague, ask a clarifying question
+- Remember what was discussed in this conversation
+- Give actionable advice based on their actual numbers
+- If comparing videos, use real data points
+- Be concise but helpful
 
-Analyze this data and find:
-1. What hooks/topics get the MOST views?
-2. What patterns exist in top-performing content?
-3. What day/time patterns exist (if date data available)?
-4. What content styles work best?
+${conversationContext}
 
-Return JSON with this structure:
-{
-  "answer": "Direct answer analyzing the actual data patterns (3-5 sentences with specific numbers/examples from the data)",
-  "patterns": ["pattern 1 found in data", "pattern 2", "pattern 3"],
-  "topPerformers": ["video/hook that performed best with stats", "second best"],
-  "recommendations": ["specific recommendation based on patterns", "another recommendation"]
-}
+User's message: "${message}"
 
-BE SPECIFIC - reference actual data points, view counts, hooks from the spreadsheet.
-Do NOT mention missing data or confidence scores - just analyze what IS there.
-Return valid JSON only.`;
+Respond naturally and helpfully:`;
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+    const result = await model.generateContent(systemPrompt);
+    const response = result.response.text();
 
-    let parsedResult;
-    try {
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsedResult = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("No JSON found");
-      }
-    } catch {
-      // Fallback - try again
-      const retryResult = await model.generateContent(prompt + "\n\nReturn ONLY valid JSON.");
-      const retryText = retryResult.response.text();
-      const jsonMatch = retryText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsedResult = JSON.parse(jsonMatch[0]);
-      } else {
-        parsedResult = {
-          answer: "I found your data but had trouble analyzing it. Try asking a more specific question.",
-          patterns: [],
-          topPerformers: [],
-          recommendations: ["Try asking about specific metrics like views or hooks"]
-        };
-      }
-    }
-
-    return NextResponse.json({ insight: parsedResult });
+    return NextResponse.json({ response });
   } catch (error) {
     console.error("Insights error:", error);
     return NextResponse.json(

@@ -139,7 +139,9 @@ export default function MarketResearchPage() {
 
     const userMessage = chatInput.trim();
     setChatInput("");
-    setChatMessages(prev => [...prev, { role: "user", content: userMessage }]);
+    
+    const newUserMessage: ChatMessage = { role: "user", content: userMessage };
+    setChatMessages(prev => [...prev, newUserMessage]);
     setIsChatting(true);
 
     try {
@@ -164,6 +166,7 @@ Trending Hashtags: ${snapshot.hashtagsTrending?.map(h => `#${h}`).join(" ") || "
           type: "chat",
           message: userMessage,
           researchContext,
+          conversationHistory: chatMessages, // Send conversation history
         }),
       });
 
@@ -177,7 +180,7 @@ Trending Hashtags: ${snapshot.hashtagsTrending?.map(h => `#${h}`).join(" ") || "
     } catch (err) {
       setChatMessages(prev => [...prev, { 
         role: "assistant", 
-        content: `Error: ${err instanceof Error ? err.message : "Something went wrong"}` 
+        content: `Sorry, I had trouble with that. ${err instanceof Error ? err.message : "Please try again."}` 
       }]);
     } finally {
       setIsChatting(false);

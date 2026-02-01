@@ -4,17 +4,9 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/AppHeader";
 
-interface InsightResponse {
-  answer: string;
-  patterns: string[];
-  topPerformers: string[];
-  recommendations: string[];
-}
-
 interface Message {
   role: "user" | "assistant";
   content: string;
-  insight?: InsightResponse;
 }
 
 interface User {
@@ -29,6 +21,7 @@ export default function InsightsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [videoScope, setVideoScope] = useState("all");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -49,8 +42,8 @@ export default function InsightsPage() {
       }
       setUser(data.user);
       
-      // Auto-ask for patterns on load
-      askQuestion("What patterns do you see in my content?");
+      // Start with a greeting that analyzes their data
+      sendMessage("Hey! Give me a quick overview of my content performance.", true);
     } catch {
       router.push("/login");
     } finally {
@@ -58,18 +51,28 @@ export default function InsightsPage() {
     }
   };
 
-  const askQuestion = async (question: string) => {
+  const sendMessage = async (messageText: string, isInitial = false) => {
     if (isLoading) return;
     
-    setMessages((prev) => [...prev, { role: "user", content: question }]);
+    const newUserMessage: Message = { role: "user", content: messageText };
+    
+    // For non-initial messages, show in UI
+    if (!isInitial) {
+      setMessages(prev => [...prev, newUserMessage]);
+    }
+    
     setIsLoading(true);
 
     try {
+      // Send conversation history for context
+      const historyToSend = isInitial ? [] : messages;
+      
       const response = await fetch("/api/insights", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          question,
+          message: messageText,
+          conversationHistory: historyToSend,
           videoScope,
         }),
       });
@@ -77,44 +80,53 @@ export default function InsightsPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to get insights");
+        throw new Error(data.error || "Failed to get response");
       }
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: data.insight.answer,
-          insight: data.insight,
-        },
-      ]);
+      const assistantMessage: Message = { role: "assistant", content: data.response };
+      
+      if (isInitial) {
+        // For initial message, just show the response
+        setMessages([assistantMessage]);
+      } else {
+        setMessages(prev => [...prev, assistantMessage]);
+      }
     } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: `Error: ${error instanceof Error ? error.message : "Something went wrong"}`,
-        },
-      ]);
+      const errorMessage: Message = { 
+        role: "assistant", 
+        content: `Sorry, I had trouble processing that. ${error instanceof Error ? error.message : "Please try again."}` 
+      };
+      
+      if (isInitial) {
+        setMessages([errorMessage]);
+      } else {
+        setMessages(prev => [...prev, errorMessage]);
+      }
     } finally {
       setIsLoading(false);
+      inputRef.current?.focus();
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
-    const question = input.trim();
+    const messageText = input.trim();
     setInput("");
-    await askQuestion(question);
+    await sendMessage(messageText);
+  };
+
+  const handleSuggestionClick = (suggestion: string) => {
+    setInput(suggestion);
+    inputRef.current?.focus();
   };
 
   const suggestedQuestions = [
-    "What hooks are getting the most views?",
-    "Which topics perform best?",
-    "What patterns exist in my top videos?",
-    "What should I make more of?",
-    "What's working vs not working?",
+    "What's my best performing video?",
+    "What hooks are working?",
+    "Give me 3 video ideas",
+    "What should I do more of?",
+    "Compare my top 3 videos",
   ];
 
   if (checkingAuth) {
@@ -132,34 +144,37 @@ export default function InsightsPage() {
         <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-yellow-900/10 blur-[120px]" />
       </div>
 
-      <div className="relative z-10 flex flex-col h-full max-w-5xl mx-auto px-4 py-3 w-full">
+      <div className="relative z-10 flex flex-col h-full max-w-4xl mx-auto px-4 py-3 w-full">
         <AppHeader businessName={user?.businessName} />
 
         {/* Chat Container */}
         <div className="flex-1 bg-surface rounded-2xl border border-border/50 elegant-border flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="p-4 border-b border-border/30 shrink-0">
+          <div className="p-3 border-b border-border/30 shrink-0">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-cream">📊 Content Insights</h2>
+              <div>
+                <h2 className="text-base font-semibold text-cream">💬 Chat with Your Data</h2>
+                <p className="text-xs text-muted">Ask me anything about your content performance</p>
+              </div>
               <select
                 value={videoScope}
                 onChange={(e) => setVideoScope(e.target.value)}
-                className="px-3 py-1.5 bg-surface-light rounded-lg border border-border/30 text-sm text-cream focus:border-gold/50 focus:outline-none"
+                className="px-2 py-1 bg-surface-light rounded-lg border border-border/30 text-xs text-cream focus:border-gold/50 focus:outline-none"
               >
-                <option value="newest">Last 5 Videos</option>
-                <option value="last10">Last 10 Videos</option>
+                <option value="newest">Last 5</option>
+                <option value="last10">Last 10</option>
                 <option value="all">All Videos</option>
               </select>
             </div>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.length === 0 && !isLoading ? (
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {messages.length === 0 && isLoading ? (
               <div className="h-full flex flex-col items-center justify-center text-center">
                 <div className="text-4xl mb-4">📊</div>
                 <h3 className="text-cream font-medium mb-2">Analyzing your content...</h3>
-                <p className="text-muted text-sm">Looking for patterns in your data</p>
+                <p className="text-muted text-sm">One moment while I look at your data</p>
               </div>
             ) : (
               messages.map((msg, i) => (
@@ -168,74 +183,25 @@ export default function InsightsPage() {
                   className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[85%] p-4 rounded-2xl ${
+                    className={`max-w-[85%] p-3 rounded-2xl ${
                       msg.role === "user"
                         ? "bg-gold/20 text-cream"
                         : "bg-surface-light text-cream"
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-
-                    {msg.insight && (
-                      <div className="mt-4 space-y-4 pt-4 border-t border-border/30">
-                        {/* Patterns Found */}
-                        {msg.insight.patterns && msg.insight.patterns.length > 0 && (
-                          <div>
-                            <p className="text-xs text-gold font-semibold mb-2 uppercase tracking-wider">🔍 Patterns Found</p>
-                            <ul className="space-y-1.5">
-                              {msg.insight.patterns.map((pattern, j) => (
-                                <li key={j} className="text-sm text-cream/90 flex items-start gap-2">
-                                  <span className="text-gold">→</span>
-                                  {pattern}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Top Performers */}
-                        {msg.insight.topPerformers && msg.insight.topPerformers.length > 0 && (
-                          <div>
-                            <p className="text-xs text-green-400 font-semibold mb-2 uppercase tracking-wider">🏆 Top Performers</p>
-                            <ul className="space-y-1.5">
-                              {msg.insight.topPerformers.map((performer, j) => (
-                                <li key={j} className="text-sm text-cream/90 flex items-start gap-2">
-                                  <span className="text-green-400">★</span>
-                                  {performer}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Recommendations */}
-                        {msg.insight.recommendations && msg.insight.recommendations.length > 0 && (
-                          <div>
-                            <p className="text-xs text-yellow-400 font-semibold mb-2 uppercase tracking-wider">💡 Recommendations</p>
-                            <ul className="space-y-1.5">
-                              {msg.insight.recommendations.map((rec, j) => (
-                                <li key={j} className="text-sm text-cream/90 flex items-start gap-2">
-                                  <span className="text-yellow-400">•</span>
-                                  {rec}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                   </div>
                 </div>
               ))
             )}
-            {isLoading && (
+            {isLoading && messages.length > 0 && (
               <div className="flex justify-start">
-                <div className="bg-surface-light p-4 rounded-2xl">
+                <div className="bg-surface-light p-3 rounded-2xl">
                   <div className="flex items-center gap-2 text-gold/60">
                     <div className="w-2 h-2 bg-gold/60 rounded-full animate-pulse" />
                     <div className="w-2 h-2 bg-gold/60 rounded-full animate-pulse" style={{ animationDelay: "0.2s" }} />
                     <div className="w-2 h-2 bg-gold/60 rounded-full animate-pulse" style={{ animationDelay: "0.4s" }} />
-                    <span className="text-xs ml-2">Analyzing your data...</span>
+                    <span className="text-xs ml-1">Thinking...</span>
                   </div>
                 </div>
               </div>
@@ -243,17 +209,15 @@ export default function InsightsPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Suggested Questions */}
-          <div className="px-4 py-2 border-t border-border/20 shrink-0">
-            <div className="flex gap-2 overflow-x-auto pb-2">
+          {/* Quick Suggestions */}
+          <div className="px-3 py-2 border-t border-border/20 shrink-0">
+            <div className="flex gap-2 overflow-x-auto pb-1">
               {suggestedQuestions.map((q, i) => (
                 <button
                   key={i}
-                  onClick={() => {
-                    setInput(q);
-                  }}
+                  onClick={() => handleSuggestionClick(q)}
                   disabled={isLoading}
-                  className="px-3 py-1.5 bg-surface rounded-lg border border-border/30 text-xs text-gold/70 hover:text-gold hover:border-gold/30 transition-all whitespace-nowrap disabled:opacity-50"
+                  className="px-2.5 py-1 bg-surface rounded-lg border border-border/30 text-[11px] text-gold/70 hover:text-gold hover:border-gold/30 transition-all whitespace-nowrap disabled:opacity-50"
                 >
                   {q}
                 </button>
@@ -262,22 +226,23 @@ export default function InsightsPage() {
           </div>
 
           {/* Input */}
-          <form onSubmit={handleSubmit} className="p-4 border-t border-border/30 shrink-0">
-            <div className="flex gap-3">
+          <form onSubmit={handleSubmit} className="p-3 border-t border-border/30 shrink-0">
+            <div className="flex gap-2">
               <input
+                ref={inputRef}
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask about your content patterns..."
+                placeholder="Ask me anything about your videos..."
                 disabled={isLoading}
-                className="flex-1 px-4 py-3 bg-surface-light rounded-xl border border-border/30 text-cream placeholder-muted/50 focus:border-gold/50 focus:outline-none disabled:opacity-50"
+                className="flex-1 px-4 py-2.5 bg-surface-light rounded-xl border border-border/30 text-cream placeholder-muted/50 focus:border-gold/50 focus:outline-none disabled:opacity-50 text-sm"
               />
               <button
                 type="submit"
                 disabled={isLoading || !input.trim()}
-                className="px-6 py-3 bg-gradient-to-r from-gold to-gold-light text-forest rounded-xl font-semibold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-2.5 bg-gradient-to-r from-gold to-gold-light text-forest rounded-xl font-semibold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
               >
-                Ask
+                Send
               </button>
             </div>
           </form>

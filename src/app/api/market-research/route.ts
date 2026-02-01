@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
     
     // Check if this is a chat message
     if (body.type === "chat") {
-      return handleChat(body.message, body.researchContext);
+      return handleChat(body.message, body.researchContext, body.conversationHistory);
     }
 
     // Otherwise, run new research
@@ -248,23 +248,37 @@ Use the ACTUAL data above. Be specific and reference real titles/topics you see.
   }
 }
 
-// Handle chat messages about research results
-async function handleChat(message: string, researchContext: string) {
-  try {
-    const prompt = `You are a trend research assistant helping a content creator understand and narrow down trends.
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
 
-Here is the research data they're looking at:
+// Handle chat messages about research results
+async function handleChat(message: string, researchContext: string, conversationHistory?: ChatMessage[]) {
+  try {
+    // Build conversation context
+    const history = conversationHistory || [];
+    const conversationContext = history.length > 0 
+      ? "\n\nPREVIOUS CONVERSATION:\n" + history.map(m => `${m.role === "user" ? "User" : "You"}: ${m.content}`).join("\n")
+      : "";
+
+    const prompt = `You are a friendly, conversational trend research assistant helping a content creator.
+
+TREND DATA YOU'RE DISCUSSING:
 ${researchContext}
 
-User's question/request: "${message}"
+GUIDELINES:
+- Be conversational and natural - talk like a helpful friend
+- Give specific video ideas when asked (use the actual trends above)
+- Remember what was discussed in this conversation
+- If they ask to narrow down, focus on their criteria
+- Be concise but helpful
+- Reference specific hooks, topics, or hashtags from the data
+${conversationContext}
 
-Help them by:
-- Answering their specific question about the trends
-- Suggesting specific video ideas if they ask
-- Narrowing down hooks or topics based on their criteria
-- Providing actionable advice
+User says: "${message}"
 
-Be concise and specific. Reference the actual data when possible. Give direct, helpful answers.`;
+Respond naturally and helpfully:`;
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
     const result = await model.generateContent(prompt);
