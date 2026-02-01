@@ -33,7 +33,8 @@ export async function GET(request: NextRequest) {
     });
 
     // Transform videos into spreadsheet format with missing data indicators
-    const spreadsheetData = videos.map((video) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const spreadsheetData = videos.map((video: any) => {
       const row: Record<string, unknown> = {
         id: video.id,
         youtubeVideoId: video.youtubeVideoId,
