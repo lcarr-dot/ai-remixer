@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GGinvestments Remixer | Transform Investment Content",
-  description: "Transform your investment insights into viral tweets, YouTube hooks, and TikTok content. Old money energy for the modern investor.",
+  title: "three seconds | Content Performance Tracker",
+  description: "Track your hooks, metrics, and experiments across YouTube, TikTok, Instagram, and more. AI-powered insights to help you grow.",
 };
 
 export default function RootLayout({

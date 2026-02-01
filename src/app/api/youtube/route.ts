@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
-const CHANNEL_HANDLE = "gginvestments"; // Your YouTube handle
+const CHANNEL_HANDLE = "@GGInvestments"; // Your YouTube handle
 
 interface YouTubeVideo {
   id: string;

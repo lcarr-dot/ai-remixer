@@ -1,0 +1,245 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== USER & AUTH ====================
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  passwordHash      String
+  businessName      String
+  timezone          String    @default("America/New_York")
+  contentNiche      String
+  primaryGoal       String
+  onboardingComplete Boolean  @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  platforms         UserPlatform[]
+  googleOAuthToken  GoogleOAuthToken?
+  youtubeChannel    YouTubeChannel?
+  videos            Video[]
+  logEntries        LogEntry[]
+  syncLogs          SyncLog[]
+  insightSnapshots  InsightSnapshot[]
+}
+
+model UserPlatform {
+  id           String   @id @default(cuid())
+  userId       String
+  platformName String   // youtube, tiktok, instagram, facebook, shorts, clapper
+  enabled      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platformName])
+}
+
+model GoogleOAuthToken {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  accessToken       String   // encrypted
+  refreshToken      String   // encrypted
+  expiresAt         DateTime
+  scope             String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model YouTubeChannel {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  channelId    String   @unique
+  title        String
+  description  String?
+  thumbnailUrl String?
+  subscriberCount String?
+  videoCount   String?
+  viewCount    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ==================== VIDEO DATA ====================
+
+model Video {
+  id              String   @id @default(cuid())
+  userId          String
+  youtubeVideoId  String?  @unique // null if not from YouTube
+  title           String
+  description     String?
+  publishedAt     DateTime?
+  thumbnailUrl    String?
+  durationSeconds Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  manualFields    VideoManualFields?
+  platformPosts   VideoPlatformPost[]
+  platformMetrics VideoPlatformMetrics[]
+  aiDerived       VideoAIDerived?
+  logEntries      LogEntry[]
+  auditLogs       AuditLog[]
+}
+
+model VideoManualFields {
+  id              String   @id @default(cuid())
+  videoId         String   @unique
+  hook            String?  // The hook/concept used
+  caption         String?  // Description/caption text
+  hashtags        Json?    // Array of hashtags
+  topic           String?  // Topic/theme
+  format          String?  // talking head, green screen, meme, etc.
+  cta             String?  // Call to action
+  targetAudience  String?  // Who is this for
+  whyPosted       String?  // Reason for posting
+  wearingOutfit   String?  // What person is wearing
+  contentSummary  String?  // Summary of video content
+  notes           String?  // Additional notes
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+}
+
+model VideoPlatformPost {
+  id         String    @id @default(cuid())
+  videoId    String
+  platform   String    // tiktok, instagram, shorts, facebook, clapper, etc.
+  posted     Boolean?  // true = posted, false = not posted, null = unknown
+  postedAt   DateTime?
+  postUrl    String?   // URL to the actual post if known
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, platform])
+}
+
+model VideoPlatformMetrics {
+  id              String   @id @default(cuid())
+  videoId         String
+  platform        String   // youtube, tiktok, instagram, shorts, facebook
+  views           Int?
+  likes           Int?
+  comments        Int?
+  shares          Int?
+  saves           Int?
+  watchTimeSeconds Int?    // Average watch time in seconds
+  followersGained Int?
+  source          String   @default("manual") // manual, api, transcript
+  transcriptId    String?  // Reference to the transcript that provided this
+  recordedAt      DateTime @default(now()) // When these metrics were recorded
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, platform])
+}
+
+model VideoAIDerived {
+  id                String   @id @default(cuid())
+  videoId           String   @unique
+  bestHookPatterns  Json?    // AI-detected hook patterns
+  formatTags        Json?    // AI-detected format tags
+  performanceNotes  String?  // AI notes on performance
+  whatChanged       String?  // What changed vs last time
+  computedAt        DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+}
+
+// ==================== LOG ENTRIES & TRANSCRIPTS ====================
+
+model LogEntry {
+  id            String      @id @default(cuid())
+  userId        String
+  rawText       String?     // Text input from user
+  audioUrl      String?     // S3 URL if voice note
+  audioDuration Int?        // Duration in seconds
+  status        String      @default("pending") // pending, processing, completed, failed, needs_association
+  linkedVideoId String?     // If associated with a specific video
+  errorMessage  String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video      Video?      @relation(fields: [linkedVideoId], references: [id])
+  transcript Transcript?
+}
+
+model Transcript {
+  id              String   @id @default(cuid())
+  logEntryId      String   @unique
+  rawTranscript   String   // Raw transcription text
+  extractedJSON   Json     // Structured data extracted by AI
+  confidenceJSON  Json?    // Confidence scores for each extracted field
+  processedAt     DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  logEntry LogEntry @relation(fields: [logEntryId], references: [id], onDelete: Cascade)
+}
+
+// ==================== AUDIT & SYNC LOGS ====================
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  entityType String   // Video, VideoManualFields, VideoPlatformMetrics, etc.
+  entityId   String
+  field      String
+  oldValue   String?
+  newValue   String?
+  source     String?  // manual, api, transcript
+  changedBy  String?  // userId or "system"
+  changedAt  DateTime @default(now())
+
+  video Video? @relation(fields: [entityId], references: [id], onDelete: SetNull)
+}
+
+model SyncLog {
+  id             String   @id @default(cuid())
+  userId         String
+  syncType       String   // youtube_uploads, etc.
+  status         String   // started, completed, failed
+  newVideosCount Int      @default(0)
+  errorMessage   String?
+  startedAt      DateTime @default(now())
+  completedAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ==================== AI INSIGHTS ====================
+
+model InsightSnapshot {
+  id               String   @id @default(cuid())
+  userId           String
+  insights         Json     // Array of insight objects
+  experiments      Json     // Array of experiment suggestions
+  hookIdeas        Json     // Array of hook templates
+  missingDataReqs  Json     // High-impact fields to request
+  confidenceNotes  Json     // What conclusions are weak
+  videosAnalyzed   Int      // How many videos were included
+  generatedAt      DateTime @default(now())
+  expiresAt        DateTime // Cache expiration
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
