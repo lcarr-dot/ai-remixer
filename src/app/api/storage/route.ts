@@ -145,7 +145,7 @@ Return valid JSON only.`;
       await put(
         `spreadsheet/${userId}/data.json`,
         JSON.stringify({ columns, rows: updatedRows }),
-        { access: "public", contentType: "application/json" }
+        { access: "public", contentType: "application/json", addRandomSuffix: false }
       );
 
       return NextResponse.json({ 
@@ -258,7 +258,7 @@ export async function PUT(request: NextRequest) {
     await put(
       `spreadsheet/${userId}/data.json`,
       JSON.stringify({ columns, rows }),
-      { access: "public", contentType: "application/json" }
+      { access: "public", contentType: "application/json", addRandomSuffix: false }
     );
 
     return NextResponse.json({ 
