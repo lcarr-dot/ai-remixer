@@ -65,12 +65,6 @@ interface VideoEntry {
   type: string;
 }
 
-interface MissingGap {
-  field: string;
-  count: number;
-  videoIds: string[];
-}
-
 interface User {
   businessName: string;
 }
@@ -89,16 +83,13 @@ function formatDuration(seconds: number): string {
 
 // Helper to format dates nicely
 function formatDate(dateStr: string): string {
-  // Handle various date formats
   if (!dateStr) return "-";
   
-  // If it's already in YYYY-MM-DD format
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
     const [year, month, day] = dateStr.split("-");
     return `${month}/${day}/${year}`;
   }
   
-  // Try to parse as date
   const date = new Date(dateStr);
   if (!isNaN(date.getTime())) {
     return date.toLocaleDateString();
@@ -111,7 +102,7 @@ export default function StoragePage() {
   const [user, setUser] = useState<User | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [entries, setEntries] = useState<VideoEntry[]>([]);
-  const [missingGaps, setMissingGaps] = useState<MissingGap[]>([]);
+  const [totalMissing, setTotalMissing] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [logText, setLogText] = useState("");
   const [isRecording, setIsRecording] = useState(false);
@@ -148,55 +139,50 @@ export default function StoragePage() {
       const response = await fetch("/api/storage");
       const data = await response.json();
       setEntries(data.entries || []);
-      calculateMissingGaps(data.entries || []);
+      calculateMissing(data.entries || []);
     } catch {
       // No entries yet
     }
   };
 
-  const calculateMissingGaps = (entries: VideoEntry[]) => {
-    const gaps: Record<string, { count: number; videoIds: string[] }> = {
-      "Title": { count: 0, videoIds: [] },
-      "Views": { count: 0, videoIds: [] },
-      "Likes": { count: 0, videoIds: [] },
-      "Comments": { count: 0, videoIds: [] },
-      "Duration": { count: 0, videoIds: [] },
-      "Post Date": { count: 0, videoIds: [] },
-    };
-
+  const calculateMissing = (entries: VideoEntry[]) => {
+    let count = 0;
     entries.forEach((entry) => {
-      if (!entry.title) {
-        gaps["Title"].count++;
-        gaps["Title"].videoIds.push(entry.id);
-      }
-      if (entry.views === undefined) {
-        gaps["Views"].count++;
-        gaps["Views"].videoIds.push(entry.id);
-      }
-      if (entry.likes === undefined) {
-        gaps["Likes"].count++;
-        gaps["Likes"].videoIds.push(entry.id);
-      }
-      if (entry.comments === undefined) {
-        gaps["Comments"].count++;
-        gaps["Comments"].videoIds.push(entry.id);
-      }
-      if (entry.duration === undefined) {
-        gaps["Duration"].count++;
-        gaps["Duration"].videoIds.push(entry.id);
-      }
-      if (!entry.postedAt) {
-        gaps["Post Date"].count++;
-        gaps["Post Date"].videoIds.push(entry.id);
-      }
+      if (entry.likes === undefined) count++;
+      if (entry.comments === undefined) count++;
     });
+    setTotalMissing(count);
+  };
 
-    const gapList = Object.entries(gaps)
-      .filter(([, v]) => v.count > 0)
-      .map(([field, v]) => ({ field, ...v }))
-      .sort((a, b) => b.count - a.count);
+  // Export Excel with highlighted gaps
+  const handleFixNow = () => {
+    // Create CSV with MISSING markers that Excel will show
+    const headers = ["Title", "Platform", "Views", "Likes", "Comments", "Duration", "Posted"];
+    const rows = entries.map((e) => [
+      e.title || "MISSING",
+      e.platform || "-",
+      e.views !== undefined ? e.views.toString() : "",
+      e.likes !== undefined ? e.likes.toString() : "⚠️ FILL IN",
+      e.comments !== undefined ? e.comments.toString() : "⚠️ FILL IN",
+      e.duration ? formatDuration(e.duration) : "",
+      e.postedAt || "",
+    ]);
 
-    setMissingGaps(gapList);
+    const csv = [
+      headers.join(","),
+      ...rows.map((row) => row.map(cell => `"${cell}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "three-seconds-fix-gaps.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    setSuccess("Downloaded! Open in Excel, fill in the ⚠️ cells, then re-import.");
+    setTimeout(() => setSuccess(""), 5000);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -267,13 +253,11 @@ export default function StoragePage() {
 
   const handleVoiceRecord = () => {
     if (isRecording) {
-      // Stop recording
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
       setIsRecording(false);
     } else {
-      // Check if browser supports speech recognition
       const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
       
       if (!SpeechRecognitionAPI) {
@@ -281,9 +265,8 @@ export default function StoragePage() {
         return;
       }
 
-      // Start recording
       const recognition = new SpeechRecognitionAPI();
-      recognition.continuous = false; // Stop after one phrase for simplicity
+      recognition.continuous = false;
       recognition.interimResults = false;
       recognition.lang = "en-US";
 
@@ -319,7 +302,7 @@ export default function StoragePage() {
         setIsRecording(true);
         setError("");
         setSuccess("🎤 Listening... Speak now!");
-      } catch (err) {
+      } catch {
         setError("Could not start voice. Please use Chrome or Edge.");
         setIsRecording(false);
       }
@@ -328,8 +311,6 @@ export default function StoragePage() {
 
   const filteredEntries = entries.filter((entry) => {
     if (filter === "all") return true;
-    if (filter === "missing_views") return !entry.views;
-    if (filter === "missing_hook") return !entry.hook;
     if (filter === "youtube") return entry.platform === "youtube";
     if (filter === "tiktok") return entry.platform === "tiktok";
     return true;
@@ -353,12 +334,34 @@ export default function StoragePage() {
       <div className="relative z-10 flex-1 flex flex-col max-w-6xl mx-auto px-4 py-3 w-full overflow-hidden">
         <AppHeader businessName={user?.businessName} />
 
-        {/* Banner */}
-        <div className="bg-gold/10 border border-gold/30 rounded-lg p-2 mb-3 text-center shrink-0">
-          <p className="text-xs text-gold">
-            📦 For best results, log <strong>YouTube + TikTok</strong> data first.
-          </p>
-        </div>
+        {/* Missing Data Alert - Only show when there's missing data */}
+        {totalMissing > 0 && (
+          <div className="bg-yellow-900/20 border border-yellow-500/40 rounded-lg p-3 mb-3 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="text-yellow-400 text-lg">⚠️</span>
+              <span className="text-yellow-200 text-sm">
+                Analytics missing in your data ({totalMissing} gaps)
+              </span>
+            </div>
+            <button
+              onClick={handleFixNow}
+              className="px-4 py-1.5 rounded-lg bg-yellow-500 text-black text-sm font-semibold hover:bg-yellow-400 transition-all"
+            >
+              Fix Now →
+            </button>
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-3 p-3 rounded-lg bg-red-900/20 border border-red-500/30 text-red-400 text-sm shrink-0">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="mb-3 p-3 rounded-lg bg-green-900/20 border border-green-500/30 text-green-400 text-sm shrink-0">
+            {success}
+          </div>
+        )}
 
         <div className="flex-1 grid lg:grid-cols-3 gap-4 min-h-0 overflow-hidden">
           {/* Input Panel */}
@@ -378,19 +381,19 @@ export default function StoragePage() {
                 disabled={isLoading}
                 className="w-full py-4 rounded-xl border-2 border-dashed border-border/50 hover:border-gold/50 text-muted hover:text-gold transition-all text-sm"
               >
-                {isLoading ? "Uploading..." : "Drop or click to upload\nCSV, XLSX, TXT, JSON, HTML"}
+                {isLoading ? "Uploading..." : "Drop or click to upload\nCSV, XLSX, TXT, JSON"}
               </button>
             </div>
 
             {/* Text/Voice Log */}
-            <div className="bg-surface rounded-2xl border border-border/50 p-6 elegant-border">
-              <h3 className="text-sm font-semibold text-gold mb-4">💬 Tell the AI</h3>
+            <div className="bg-surface rounded-2xl border border-border/50 p-4 elegant-border">
+              <h3 className="text-sm font-semibold text-gold mb-3">💬 Tell the AI</h3>
               <textarea
                 value={logText}
                 onChange={(e) => setLogText(e.target.value)}
                 placeholder="Tell me about your latest video... e.g., 'My TikTok about stocks got 12k views and 500 likes'"
-                rows={4}
-                className="w-full px-4 py-3 bg-surface-light rounded-xl border border-border/30 text-cream placeholder-muted/50 focus:border-gold/50 focus:outline-none resize-none text-sm mb-3"
+                rows={3}
+                className="w-full px-3 py-2 bg-surface-light rounded-xl border border-border/30 text-cream placeholder-muted/50 focus:border-gold/50 focus:outline-none resize-none text-sm mb-3"
               />
               <div className="flex gap-2">
                 <button
@@ -412,28 +415,11 @@ export default function StoragePage() {
                 </button>
               </div>
             </div>
-
-            {/* Missing Data Panel */}
-            {missingGaps.length > 0 && (
-              <div className="bg-yellow-900/10 border border-yellow-500/30 rounded-2xl p-6">
-                <h3 className="text-sm font-semibold text-yellow-400 mb-4">⚠️ Missing Data</h3>
-                <ul className="space-y-2">
-                  {missingGaps.slice(0, 5).map((gap, i) => (
-                    <li key={i} className="flex items-center justify-between text-sm">
-                      <span className="text-cream/80">{gap.field}</span>
-                      <span className="px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-400 text-xs">
-                        {gap.count} missing
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
 
           {/* Spreadsheet View */}
-          <div className="lg:col-span-2 bg-surface rounded-2xl border border-border/50 p-6 elegant-border">
-            <div className="flex items-center justify-between mb-4">
+          <div className="lg:col-span-2 bg-surface rounded-2xl border border-border/50 p-4 elegant-border flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between mb-3 shrink-0">
               <h3 className="text-lg font-semibold text-cream">📊 Content Tracker</h3>
               <select
                 value={filter}
@@ -441,32 +427,19 @@ export default function StoragePage() {
                 className="px-3 py-1.5 bg-surface-light rounded-lg border border-border/30 text-sm text-cream focus:border-gold/50 focus:outline-none"
               >
                 <option value="all">All Entries</option>
-                <option value="missing_views">Missing Views</option>
-                <option value="missing_hook">Missing Hook</option>
                 <option value="youtube">YouTube Only</option>
                 <option value="tiktok">TikTok Only</option>
               </select>
             </div>
 
-            {error && (
-              <div className="mb-4 p-3 rounded-lg bg-red-900/20 border border-red-500/30 text-red-400 text-sm">
-                {error}
-              </div>
-            )}
-            {success && (
-              <div className="mb-4 p-3 rounded-lg bg-green-900/20 border border-green-500/30 text-green-400 text-sm">
-                {success}
-              </div>
-            )}
-
             {filteredEntries.length === 0 ? (
-              <div className="text-center py-12">
+              <div className="text-center py-12 flex-1 flex flex-col items-center justify-center">
                 <div className="text-4xl mb-3 opacity-40">📊</div>
                 <p className="text-muted mb-2">No data logged yet</p>
                 <p className="text-xs text-muted">Upload a file or tell the AI about your videos</p>
               </div>
             ) : (
-              <div className="overflow-x-auto flex-1">
+              <div className="overflow-auto flex-1">
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 bg-surface">
                     <tr className="border-b border-border/30">
@@ -483,29 +456,17 @@ export default function StoragePage() {
                     {filteredEntries.map((entry) => (
                       <tr key={entry.id} className="border-b border-border/20 hover:bg-surface-light/50">
                         <td className="py-2 px-2 text-cream/90 max-w-[180px] truncate" title={entry.title}>
-                          {entry.title || <span className="px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 text-[10px]">Missing</span>}
+                          {entry.title || "-"}
                         </td>
                         <td className="py-2 px-2 text-cream/70 capitalize">{entry.platform || "-"}</td>
-                        <td className="py-2 px-2 text-right">
-                          {entry.views !== undefined ? (
-                            <span className="text-cream">{entry.views.toLocaleString()}</span>
-                          ) : (
-                            <span className="px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 text-[10px]">Missing</span>
-                          )}
+                        <td className="py-2 px-2 text-right text-cream">
+                          {entry.views !== undefined ? entry.views.toLocaleString() : "-"}
                         </td>
-                        <td className="py-2 px-2 text-right">
-                          {entry.likes !== undefined ? (
-                            <span className="text-cream">{entry.likes.toLocaleString()}</span>
-                          ) : (
-                            <span className="px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 text-[10px]">Missing</span>
-                          )}
+                        <td className="py-2 px-2 text-right text-cream">
+                          {entry.likes !== undefined ? entry.likes.toLocaleString() : "-"}
                         </td>
-                        <td className="py-2 px-2 text-right">
-                          {entry.comments !== undefined ? (
-                            <span className="text-cream">{entry.comments.toLocaleString()}</span>
-                          ) : (
-                            <span className="px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 text-[10px]">Missing</span>
-                          )}
+                        <td className="py-2 px-2 text-right text-cream">
+                          {entry.comments !== undefined ? entry.comments.toLocaleString() : "-"}
                         </td>
                         <td className="py-2 px-2 text-right text-cream/70">
                           {entry.duration ? formatDuration(entry.duration) : "-"}
@@ -521,26 +482,22 @@ export default function StoragePage() {
             )}
 
             {entries.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-border/30 flex items-center justify-between">
+              <div className="mt-3 pt-3 border-t border-border/30 flex items-center justify-between shrink-0">
                 <span className="text-xs text-muted">
                   {filteredEntries.length} of {entries.length} entries
                 </span>
                 <button
                   onClick={() => {
-                    // Export CSV functionality
                     const csv = [
-                      ["Title", "Platform", "Views", "Likes", "Comments", "Shares", "Duration", "Posted", "Hook", "Description"],
+                      ["Title", "Platform", "Views", "Likes", "Comments", "Duration", "Posted"],
                       ...entries.map((e) => [
                         e.title || "",
                         e.platform || "",
                         e.views?.toString() || "",
                         e.likes?.toString() || "",
                         e.comments?.toString() || "",
-                        e.shares?.toString() || "",
                         e.duration ? formatDuration(e.duration) : "",
                         e.postedAt || "",
-                        e.hook || "",
-                        e.description || "",
                       ]),
                     ]
                       .map((row) => row.map(cell => `"${cell}"`).join(","))
@@ -552,6 +509,7 @@ export default function StoragePage() {
                     a.href = url;
                     a.download = "three-seconds-export.csv";
                     a.click();
+                    URL.revokeObjectURL(url);
                   }}
                   className="px-3 py-1.5 rounded-lg bg-surface-light border border-border/30 text-gold/70 text-xs hover:text-gold hover:border-gold/30 transition-all"
                 >
