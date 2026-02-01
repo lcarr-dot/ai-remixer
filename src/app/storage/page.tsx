@@ -4,6 +4,49 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/AppHeader";
 
+// Web Speech API types
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  isFinal: boolean;
+  length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: Event) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+  abort(): void;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: new () => SpeechRecognition;
+    webkitSpeechRecognition: new () => SpeechRecognition;
+  }
+}
+
 interface VideoEntry {
   id: string;
   title?: string;
@@ -40,6 +83,7 @@ export default function StoragePage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -186,19 +230,64 @@ export default function StoragePage() {
     }
   };
 
-  const handleVoiceRecord = async () => {
+  const handleVoiceRecord = () => {
     if (isRecording) {
-      // Stop recording - in a real app, this would process the audio
+      // Stop recording
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
       setIsRecording(false);
-      setSuccess("Voice recording feature coming soon!");
-      setTimeout(() => setSuccess(""), 3000);
     } else {
+      // Check if browser supports speech recognition
+      const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+      
+      if (!SpeechRecognitionAPI) {
+        setError("Voice not supported. Please use Chrome or Edge browser.");
+        return;
+      }
+
       // Start recording
-      setIsRecording(true);
-      // In production, this would use the Web Audio API
-      setTimeout(() => {
+      const recognition = new SpeechRecognitionAPI();
+      recognition.continuous = false; // Stop after one phrase for simplicity
+      recognition.interimResults = false;
+      recognition.lang = "en-US";
+
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        const transcript = event.results[0][0].transcript;
+        setLogText((prev) => prev ? prev + " " + transcript : transcript);
+        setSuccess("Got it! Click 'Log Text' to save.");
+        setTimeout(() => setSuccess(""), 3000);
+      };
+
+      recognition.onerror = (event: Event & { error?: string }) => {
+        const errorType = event.error || "unknown";
+        if (errorType === "not-allowed") {
+          setError("Microphone access denied. Please allow microphone in browser settings.");
+        } else if (errorType === "no-speech") {
+          setError("No speech detected. Click Voice and try speaking.");
+        } else if (errorType === "network") {
+          setError("Network error. Check your internet connection.");
+        } else {
+          setError(`Voice error: ${errorType}. Try Chrome browser.`);
+        }
         setIsRecording(false);
-      }, 5000);
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognitionRef.current = recognition;
+      
+      try {
+        recognition.start();
+        setIsRecording(true);
+        setError("");
+        setSuccess("🎤 Listening... Speak now!");
+      } catch (err) {
+        setError("Could not start voice. Please use Chrome or Edge.");
+        setIsRecording(false);
+      }
     }
   };
 

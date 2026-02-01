@@ -102,27 +102,28 @@ export async function GET(request: NextRequest) {
     });
 
     // Apply filters
-    let filteredData = spreadsheetData;
+    type RowType = Record<string, unknown>;
+    let filteredData: RowType[] = spreadsheetData;
     if (filter) {
       if (filter === "missing_tiktok") {
-        filteredData = spreadsheetData.filter((r) => r.tiktok_views === null);
+        filteredData = spreadsheetData.filter((r: RowType) => r.tiktok_views === null);
       } else if (filter === "missing_youtube") {
-        filteredData = spreadsheetData.filter((r) => r.youtube_views === null);
+        filteredData = spreadsheetData.filter((r: RowType) => r.youtube_views === null);
       } else if (filter === "missing_hook") {
-        filteredData = spreadsheetData.filter((r) => !r.hook);
+        filteredData = spreadsheetData.filter((r: RowType) => !r.hook);
       } else if (filter === "has_missing") {
-        filteredData = spreadsheetData.filter((r) => (r.missingCount as number) > 0);
+        filteredData = spreadsheetData.filter((r: RowType) => (r.missingCount as number) > 0);
       }
     }
 
     // Calculate missing data summary
     const missingDataSummary = {
       totalVideos: videos.length,
-      tiktokViewsMissing: spreadsheetData.filter((r) => platforms.includes("tiktok") && r.tiktok_views === null).length,
-      youtubeViewsMissing: spreadsheetData.filter((r) => platforms.includes("youtube") && r.youtube_views === null).length,
-      hookMissing: spreadsheetData.filter((r) => !r.hook).length,
-      hashtagsMissing: spreadsheetData.filter((r) => !r.hashtags).length,
-      formatMissing: spreadsheetData.filter((r) => !r.format).length,
+      tiktokViewsMissing: spreadsheetData.filter((r: RowType) => platforms.includes("tiktok") && r.tiktok_views === null).length,
+      youtubeViewsMissing: spreadsheetData.filter((r: RowType) => platforms.includes("youtube") && r.youtube_views === null).length,
+      hookMissing: spreadsheetData.filter((r: RowType) => !r.hook).length,
+      hashtagsMissing: spreadsheetData.filter((r: RowType) => !r.hashtags).length,
+      formatMissing: spreadsheetData.filter((r: RowType) => !r.format).length,
     };
 
     return NextResponse.json({
