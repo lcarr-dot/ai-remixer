@@ -130,11 +130,11 @@ Return valid JSON only.`;
       const updatedRows = [...rows];
       for (const update of updatePlan.updates || []) {
         if (update.rowIndex === -1) {
-          // Add new row
+          // Add new row at the TOP (newest videos first)
           const newRow: Record<string, string> = {};
           columns.forEach((col: string) => newRow[col] = "");
           Object.assign(newRow, update.changes);
-          updatedRows.push(newRow);
+          updatedRows.unshift(newRow); // Add to beginning, not end
         } else if (update.rowIndex >= 0 && update.rowIndex < updatedRows.length) {
           // Update existing row
           Object.assign(updatedRows[update.rowIndex], update.changes);
