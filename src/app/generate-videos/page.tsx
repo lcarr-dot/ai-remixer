@@ -161,25 +161,29 @@ export default function GenerateVideosPage() {
         <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-yellow-900/10 blur-[120px]" />
       </div>
 
-      <div className="relative z-10 flex-1 flex flex-col max-w-6xl mx-auto px-4 py-3 w-full overflow-hidden">
-        <AppHeader businessName={user?.businessName} />
+      <div className="relative z-10 flex-1 flex flex-col px-4 py-3 w-full overflow-hidden">
+        <div className="max-w-7xl mx-auto w-full shrink-0">
+          <AppHeader businessName={user?.businessName} />
+        </div>
 
         {/* Value Prop Banner */}
-        <div className="bg-gold/10 border border-gold/30 rounded-lg p-2 mb-3 text-center shrink-0">
-          <p className="text-xs text-gold">
-            ✨ We use your past video data to generate <strong>viral hooks, scripts & captions</strong> tailored to your niche.
-          </p>
+        <div className="max-w-7xl mx-auto w-full shrink-0">
+          <div className="bg-gold/10 border border-gold/30 rounded-lg p-2 mb-3 text-center">
+            <p className="text-xs text-gold">
+              ✨ We use your past video data to generate <strong>viral hooks, scripts & captions</strong> tailored to your niche.
+            </p>
+          </div>
         </div>
 
         {error && (
-          <div className="mb-2 p-2 rounded-lg bg-red-900/20 border border-red-500/30 text-red-400 text-sm shrink-0">
+          <div className="mb-2 p-2 rounded-lg bg-red-900/20 border border-red-500/30 text-red-400 text-sm shrink-0 max-w-7xl mx-auto w-full">
             {error}
           </div>
         )}
 
-        <div className="flex-1 grid lg:grid-cols-5 gap-3 min-h-0 overflow-hidden">
+        <div className="flex-1 grid lg:grid-cols-2 gap-4 min-h-0 overflow-hidden px-2">
           {/* Input Panel - Left Side */}
-          <div className="lg:col-span-2 bg-surface rounded-xl border border-border/50 p-4 elegant-border overflow-auto">
+          <div className="bg-surface rounded-xl border border-border/50 p-5 elegant-border overflow-auto">
             <h2 className="text-sm font-semibold text-cream mb-3">🎬 What's the video about?</h2>
 
             <div className="space-y-3">
@@ -313,9 +317,9 @@ export default function GenerateVideosPage() {
           </div>
 
           {/* Output Panel - Right Side */}
-          <div className="lg:col-span-3 grid grid-rows-3 gap-3 min-h-0 overflow-hidden">
+          <div className="grid grid-rows-3 gap-3 min-h-0 overflow-hidden">
             {/* Hooks Box */}
-            <div className="bg-surface rounded-xl border border-border/50 p-3 elegant-border overflow-hidden flex flex-col">
+            <div className="bg-surface rounded-xl border border-border/50 p-4 elegant-border overflow-hidden flex flex-col">
               <div className="flex items-center justify-between mb-2 shrink-0">
                 <h3 className="text-xs font-semibold text-gold flex items-center gap-1">
                   🎣 Hooks
@@ -359,7 +363,7 @@ export default function GenerateVideosPage() {
             </div>
 
             {/* Script Box */}
-            <div className="bg-surface rounded-xl border border-border/50 p-3 elegant-border overflow-hidden flex flex-col">
+            <div className="bg-surface rounded-xl border border-border/50 p-4 elegant-border overflow-hidden flex flex-col">
               <div className="flex items-center justify-between mb-2 shrink-0">
                 <h3 className="text-xs font-semibold text-gold">📝 Script</h3>
                 {script && (
@@ -389,7 +393,7 @@ export default function GenerateVideosPage() {
             </div>
 
             {/* Caption & Hashtags Box */}
-            <div className="bg-surface rounded-xl border border-border/50 p-3 elegant-border overflow-hidden flex flex-col">
+            <div className="bg-surface rounded-xl border border-border/50 p-4 elegant-border overflow-hidden flex flex-col">
               <div className="flex items-center justify-between mb-2 shrink-0">
                 <h3 className="text-xs font-semibold text-gold">💬 Caption & Hashtags</h3>
                 {caption && (
