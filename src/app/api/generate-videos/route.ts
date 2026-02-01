@@ -1,22 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import jwt from "jsonwebtoken";
-import { put, list } from "@vercel/blob";
-import { z } from "zod";
+import { list } from "@vercel/blob";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const JWT_SECRET = process.env.JWT_SECRET || "three-seconds-secret-key-change-in-production";
-
-// Zod schema for validation
-const generateResultSchema = z.object({
-  hooks: z.array(z.string()),
-  script: z.string(),
-  descriptions: z.array(z.string()),
-  hashtags: z.array(z.string()),
-  shotList: z.array(z.string()).optional(),
-  whyThisShouldWork: z.string(),
-  whatToTest: z.string(),
-});
 
 function getUserIdFromRequest(request: NextRequest): string | null {
   const token = request.cookies.get("auth_token")?.value;
@@ -29,61 +17,44 @@ function getUserIdFromRequest(request: NextRequest): string | null {
   }
 }
 
-// Helper to get user's stored history for context
-async function getUserHistoryContext(userId: string): Promise<string> {
+// Get user's spreadsheet data for context
+async function getUserDataContext(userId: string): Promise<string> {
   try {
-    // Get user's past drafts for context
-    const { blobs } = await list({ prefix: `drafts/${userId}/` });
+    const { blobs } = await list({ prefix: `spreadsheet/${userId}/` });
     
-    if (blobs.length === 0) {
-      return "";
-    }
+    if (blobs.length === 0) return "";
 
-    const recentDrafts: string[] = [];
-    const sortedBlobs = blobs
-      .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())
-      .slice(0, 5); // Last 5 drafts
+    const latestBlob = blobs.sort((a, b) => 
+      new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
+    )[0];
 
-    for (const blob of sortedBlobs) {
-      try {
-        const response = await fetch(blob.url);
-        const draft = await response.json();
-        if (draft.topic) {
-          recentDrafts.push(`- Topic: ${draft.topic}`);
-        }
-      } catch {
-        // Skip
-      }
-    }
-
-    // Get market research for context
-    const { blobs: researchBlobs } = await list({ prefix: `market-research/${userId}/` });
-    let latestResearch = "";
+    const response = await fetch(latestBlob.url);
+    const data = await response.json();
     
-    if (researchBlobs.length > 0) {
-      const sorted = researchBlobs.sort((a, b) => 
-        new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
-      );
-      try {
-        const response = await fetch(sorted[0].url);
-        const research = await response.json();
-        if (research.hookPatterns) {
-          latestResearch = `\nRecent trending hooks: ${research.hookPatterns.slice(0, 3).join(", ")}`;
-        }
-      } catch {
-        // Skip
-      }
-    }
+    if (!data.rows || data.rows.length === 0) return "";
 
-    if (recentDrafts.length === 0 && !latestResearch) {
-      return "";
-    }
+    // Get top performing content (by views if available)
+    const topContent = data.rows
+      .filter((r: Record<string, string>) => r.Views || r.views)
+      .sort((a: Record<string, string>, b: Record<string, string>) => {
+        const aViews = parseInt(String(a.Views || a.views || 0).replace(/,/g, ""));
+        const bViews = parseInt(String(b.Views || b.views || 0).replace(/,/g, ""));
+        return bViews - aViews;
+      })
+      .slice(0, 5);
+
+    if (topContent.length === 0) return "";
+
+    const hookCol = data.columns.find((c: string) => c.toLowerCase().includes("hook"));
+    const topHooks = topContent
+      .map((r: Record<string, string>) => hookCol ? r[hookCol] : null)
+      .filter(Boolean)
+      .slice(0, 3);
 
     return `
---- USER HISTORY CONTEXT ---
-${recentDrafts.length > 0 ? `Recent video topics:\n${recentDrafts.join("\n")}` : ""}
-${latestResearch}
-Use this context to maintain consistency with their content style.
+--- YOUR TOP PERFORMING CONTENT ---
+${topHooks.length > 0 ? `Your best hooks:\n${topHooks.map((h: string) => `- "${h}"`).join("\n")}` : ""}
+Use this style as inspiration.
 --- END CONTEXT ---
 `;
   } catch {
@@ -98,94 +69,148 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { topic, platform, tone, duration, ctaGoal, mustInclude } = await request.json();
+    const { topic, platform, duration, fileContent, generateType } = await request.json();
 
-    if (!topic) {
-      return NextResponse.json({ error: "Topic is required" }, { status: 400 });
+    if (!topic && !fileContent) {
+      return NextResponse.json({ error: "Topic or file required" }, { status: 400 });
     }
 
-    const historyContext = await getUserHistoryContext(userId);
-    const mustIncludeStr = mustInclude?.length > 0 
-      ? `\nMust include these points: ${mustInclude.join(", ")}`
-      : "";
+    const userContext = await getUserDataContext(userId);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
 
-    const prompt = `You are a viral video content creator. Generate content for a ${platform || "TikTok"} video.
-
-${historyContext}
+    const baseContext = `You are a viral ${platform || "TikTok"} content creator.
+${userContext}
 
 Video Details:
-- Topic: ${topic}
+- Topic: ${topic || "Based on the uploaded file content"}
 - Platform: ${platform || "TikTok"}
-- Tone: ${tone || "engaging"}
 - Target Duration: ${duration || 60} seconds
-- CTA Goal: ${ctaGoal || "engagement"}${mustIncludeStr}
+${fileContent ? `\nReference Material:\n${fileContent.substring(0, 3000)}` : ""}
+`;
 
-Return your content as valid JSON with this exact structure:
+    // Generate based on type
+    if (generateType === "hook" || generateType === "all") {
+      const hookPrompt = `${baseContext}
+
+Generate 3 scroll-stopping hooks for this video. Each hook should:
+- Grab attention in the first 3 seconds
+- Create curiosity or urgency
+- Be natural to say out loud
+
+Return ONLY valid JSON:
 {
-  "hooks": ["hook1", "hook2", "hook3"] (exactly 3 different hooks, each punchy and scroll-stopping),
-  "script": "Full video script written to be spoken naturally, fits the duration target, includes [visual cues] in brackets",
-  "descriptions": ["caption1", "caption2"] (exactly 2 different captions/descriptions),
-  "hashtags": ["tag1", "tag2", ...] (10-20 relevant hashtags WITHOUT the # symbol),
-  "shotList": ["shot1", "shot2", ...] (5-8 visual beats/shots),
-  "whyThisShouldWork": "2-3 sentences explaining why this content should perform well",
-  "whatToTest": "2-3 sentences suggesting A/B tests or variations to try"
-}
+  "hooks": ["hook1", "hook2", "hook3"]
+}`;
 
-Make hooks attention-grabbing in the first 3 seconds. Script should be conversational and natural. Return valid JSON only.`;
-
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
-    
-    let result = await model.generateContent(prompt);
-    let responseText = result.response.text();
-
-    // Extract and parse JSON
-    let parsedResult;
-    try {
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsedResult = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("No JSON found");
+      const hookResult = await model.generateContent(hookPrompt);
+      const hookText = hookResult.response.text();
+      const hookJson = hookText.match(/\{[\s\S]*\}/);
+      
+      if (generateType === "hook") {
+        if (hookJson) {
+          return NextResponse.json(JSON.parse(hookJson[0]));
+        }
+        return NextResponse.json({ hooks: [] });
       }
       
-      // Validate with zod
-      generateResultSchema.parse(parsedResult);
-    } catch (parseError) {
-      // Retry with repair prompt
-      const repairPrompt = `${prompt}\n\nIMPORTANT: Return ONLY valid JSON, no markdown, no explanation.`;
-      result = await model.generateContent(repairPrompt);
-      responseText = result.response.text();
-      
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsedResult = JSON.parse(jsonMatch[0]);
-        generateResultSchema.parse(parsedResult);
-      } else {
-        throw new Error("Failed to parse generated content");
+      // Continue for "all"
+      var hooks: string[] = [];
+      if (hookJson) {
+        try {
+          hooks = JSON.parse(hookJson[0]).hooks || [];
+        } catch {
+          hooks = [];
+        }
       }
     }
 
-    // Create draft
-    const draft = {
-      id: `draft_${Date.now()}`,
-      topic,
-      platform: platform || "tiktok",
-      tone: tone || "engaging",
-      duration: duration || 60,
-      ctaGoal: ctaGoal || "",
-      mustInclude: mustInclude || [],
-      ...parsedResult,
-      createdAt: new Date().toISOString(),
-    };
+    if (generateType === "script" || generateType === "all") {
+      const scriptPrompt = `${baseContext}
 
-    // Save draft to blob storage
-    await put(
-      `drafts/${userId}/${draft.id}.json`,
-      JSON.stringify(draft),
-      { access: "public", contentType: "application/json" }
-    );
+Write a complete video script for a ${duration || 60} second video.
+- Write naturally, as if speaking to a friend
+- Include [visual cues] in brackets
+- Start with a hook, build tension, deliver value, end with engagement
+- Make it conversational and authentic
 
-    return NextResponse.json({ draft });
+Return ONLY valid JSON:
+{
+  "script": "Your full script here..."
+}`;
+
+      const scriptResult = await model.generateContent(scriptPrompt);
+      const scriptText = scriptResult.response.text();
+      const scriptJson = scriptText.match(/\{[\s\S]*\}/);
+      
+      if (generateType === "script") {
+        if (scriptJson) {
+          return NextResponse.json(JSON.parse(scriptJson[0]));
+        }
+        return NextResponse.json({ script: "" });
+      }
+      
+      // Continue for "all"
+      var script = "";
+      if (scriptJson) {
+        try {
+          script = JSON.parse(scriptJson[0]).script || "";
+        } catch {
+          script = "";
+        }
+      }
+    }
+
+    if (generateType === "caption" || generateType === "all") {
+      const captionPrompt = `${baseContext}
+
+Create a caption and hashtags for this video.
+- Caption should drive engagement (comments, saves, shares)
+- Add a call-to-action
+- Hashtags should mix trending and niche-specific
+
+Return ONLY valid JSON:
+{
+  "caption": "Your caption here...",
+  "hashtags": ["tag1", "tag2", "tag3"] (10-15 tags WITHOUT the # symbol)
+}`;
+
+      const captionResult = await model.generateContent(captionPrompt);
+      const captionText = captionResult.response.text();
+      const captionJson = captionText.match(/\{[\s\S]*\}/);
+      
+      if (generateType === "caption") {
+        if (captionJson) {
+          return NextResponse.json(JSON.parse(captionJson[0]));
+        }
+        return NextResponse.json({ caption: "", hashtags: [] });
+      }
+      
+      // Continue for "all"
+      var caption = "";
+      var hashtags: string[] = [];
+      if (captionJson) {
+        try {
+          const parsed = JSON.parse(captionJson[0]);
+          caption = parsed.caption || "";
+          hashtags = parsed.hashtags || [];
+        } catch {
+          caption = "";
+          hashtags = [];
+        }
+      }
+    }
+
+    // Return all generated content
+    if (generateType === "all") {
+      return NextResponse.json({
+        hooks: hooks!,
+        script: script!,
+        caption: caption!,
+        hashtags: hashtags!,
+      });
+    }
+
+    return NextResponse.json({ error: "Invalid generate type" }, { status: 400 });
   } catch (error) {
     console.error("Generate videos error:", error);
     return NextResponse.json(
