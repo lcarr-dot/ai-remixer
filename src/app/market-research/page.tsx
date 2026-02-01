@@ -7,13 +7,24 @@ import AppHeader from "@/components/AppHeader";
 interface HookTrending {
   hook: string;
   example: string;
-  whyWorks: string;
+  whyWorks?: string;
+  sourceUrl?: string;
+  source?: string;
 }
 
 interface ContentTrending {
   topic: string;
   description: string;
   viewPotential: string;
+  sourceUrl?: string;
+  source?: string;
+}
+
+interface TopVideo {
+  title: string;
+  views: string;
+  url: string;
+  channel: string;
 }
 
 interface ResearchSnapshot {
@@ -23,6 +34,7 @@ interface ResearchSnapshot {
   hooksTrending: HookTrending[];
   contentTrending: ContentTrending[];
   hashtagsTrending: string[];
+  topVideos?: TopVideo[];
   summary: string;
   createdAt: string;
 }
@@ -376,9 +388,21 @@ Trending Hashtags: ${snapshot.hashtagsTrending?.map(h => `#${h}`).join(" ") || "
               ) : (
                 <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
                   {snapshot.hooksTrending?.map((hook, i) => (
-                    <div key={i} className="p-2 bg-surface-light rounded-lg">
+                    <div key={i} className="p-2 bg-surface-light rounded-lg group">
                       <p className="text-xs text-cream font-medium">{hook.hook}</p>
                       <p className="text-[10px] text-gold/70 mt-0.5">&quot;{hook.example}&quot;</p>
+                      {hook.sourceUrl && (
+                        <a 
+                          href={hook.sourceUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[9px] text-blue-400 hover:text-blue-300 mt-1"
+                        >
+                          <span>{hook.source === "Reddit" ? "📱" : "▶️"}</span>
+                          <span className="underline">View source</span>
+                          <span>↗</span>
+                        </a>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -395,18 +419,30 @@ Trending Hashtags: ${snapshot.hashtagsTrending?.map(h => `#${h}`).join(" ") || "
               ) : (
                 <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
                   {snapshot.contentTrending?.map((content, i) => (
-                    <div key={i} className="p-2 bg-surface-light rounded-lg flex items-start justify-between">
-                      <div className="flex-1">
-                        <p className="text-xs text-cream font-medium">{content.topic}</p>
-                        <p className="text-[10px] text-muted mt-0.5">{content.description}</p>
+                    <div key={i} className="p-2 bg-surface-light rounded-lg">
+                      <div className="flex items-start justify-between">
+                        <p className="text-xs text-cream font-medium flex-1">{content.topic}</p>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full ml-2 shrink-0 ${
+                          content.viewPotential === "High" 
+                            ? "bg-green-500/20 text-green-400" 
+                            : "bg-yellow-500/20 text-yellow-400"
+                        }`}>
+                          {content.viewPotential}
+                        </span>
                       </div>
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full ml-2 shrink-0 ${
-                        content.viewPotential === "High" 
-                          ? "bg-green-500/20 text-green-400" 
-                          : "bg-yellow-500/20 text-yellow-400"
-                      }`}>
-                        {content.viewPotential}
-                      </span>
+                      <p className="text-[10px] text-muted mt-0.5">{content.description}</p>
+                      {content.sourceUrl && (
+                        <a 
+                          href={content.sourceUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[9px] text-blue-400 hover:text-blue-300 mt-1"
+                        >
+                          <span>{content.source === "Reddit" ? "📱" : "▶️"}</span>
+                          <span className="underline">View source</span>
+                          <span>↗</span>
+                        </a>
+                      )}
                     </div>
                   ))}
                 </div>

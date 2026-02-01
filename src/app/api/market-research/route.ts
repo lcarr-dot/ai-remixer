@@ -18,9 +18,24 @@ function getUserIdFromRequest(request: NextRequest): string | null {
   }
 }
 
+interface YouTubeVideo {
+  id: string;
+  title: string;
+  views: string;
+  channel: string;
+  url: string;
+}
+
+interface RedditPost {
+  title: string;
+  upvotes: number;
+  subreddit: string;
+  url: string;
+}
+
 // Fetch trending YouTube videos for a topic
 async function fetchYouTubeTrending(topic: string): Promise<{
-  videos: { title: string; views: string; channel: string }[];
+  videos: YouTubeVideo[];
   error?: string;
 }> {
   if (!YOUTUBE_API_KEY) {
@@ -37,19 +52,22 @@ async function fetchYouTubeTrending(topic: string): Promise<{
       return { videos: [] };
     }
 
-    const videoIds = searchData.items.map((item: { id: { videoId: string } }) => item.id.videoId).join(",");
-    const statsUrl = `https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id=${videoIds}&key=${YOUTUBE_API_KEY}`;
+    const videoIds = searchData.items.map((item: { id: { videoId: string } }) => item.id.videoId);
+    const statsUrl = `https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id=${videoIds.join(",")}&key=${YOUTUBE_API_KEY}`;
     
     const statsRes = await fetch(statsUrl);
     const statsData = await statsRes.json();
 
-    const videos = statsData.items?.map((video: {
+    const videos: YouTubeVideo[] = statsData.items?.map((video: {
+      id: string;
       snippet: { title: string; channelTitle: string };
       statistics: { viewCount: string };
     }) => ({
+      id: video.id,
       title: video.snippet.title,
       views: formatViews(parseInt(video.statistics.viewCount || "0")),
       channel: video.snippet.channelTitle,
+      url: `https://youtube.com/watch?v=${video.id}`,
     })) || [];
 
     return { videos };
@@ -61,7 +79,7 @@ async function fetchYouTubeTrending(topic: string): Promise<{
 
 // Fetch trending Reddit posts
 async function fetchRedditTrending(topic: string): Promise<{
-  posts: { title: string; upvotes: number; subreddit: string }[];
+  posts: RedditPost[];
   error?: string;
 }> {
   try {
@@ -77,12 +95,13 @@ async function fetchRedditTrending(topic: string): Promise<{
 
     const data = await res.json();
     
-    const posts = data.data?.children?.map((child: {
-      data: { title: string; ups: number; subreddit: string }
+    const posts: RedditPost[] = data.data?.children?.map((child: {
+      data: { title: string; ups: number; subreddit: string; permalink: string }
     }) => ({
       title: child.data.title,
       upvotes: child.data.ups,
       subreddit: child.data.subreddit,
+      url: `https://reddit.com${child.data.permalink}`,
     })) || [];
 
     return { posts };
@@ -155,17 +174,18 @@ export async function POST(request: NextRequest) {
       fetchRedditTrending(searchTopic),
     ]);
 
+    // Build context with URLs
     const realDataContext = `
 REAL DATA FROM SOURCES:
 
 === YOUTUBE TRENDING VIDEOS (Last 30 Days) ===
 ${youtubeData.videos.length > 0 
-  ? youtubeData.videos.map((v, i) => `${i + 1}. "${v.title}" - ${v.views} views (${v.channel})`).join("\n")
+  ? youtubeData.videos.map((v, i) => `${i + 1}. "${v.title}" - ${v.views} views (${v.channel}) [URL: ${v.url}]`).join("\n")
   : "No YouTube data available"}
 
 === REDDIT HOT POSTS (This Week) ===
 ${redditData.posts.length > 0
-  ? redditData.posts.map((p, i) => `${i + 1}. "${p.title}" - ${p.upvotes} upvotes (r/${p.subreddit})`).join("\n")
+  ? redditData.posts.map((p, i) => `${i + 1}. "${p.title}" - ${p.upvotes} upvotes (r/${p.subreddit}) [URL: ${p.url}]`).join("\n")
   : "No Reddit data available"}
 `;
 
@@ -175,26 +195,26 @@ ${realDataContext}
 
 Based on this REAL data, extract:
 
-1. HOOKS TRENDING - What hook styles/formats are working? Look at video titles and post titles.
-2. CONTENT TRENDING - What topics/themes are getting views? Be specific.
+1. HOOKS TRENDING - What hook styles/formats are working? Include a source link.
+2. CONTENT TRENDING - What topics/themes are getting views? Include source links.
 3. HASHTAGS TRENDING - What hashtags would work based on these trends?
 
 Return JSON:
 {
   "hooksTrending": [
-    {"hook": "The exact hook format/style", "example": "Real example from the data", "whyWorks": "Why this works"}
-  ] (5-7 hooks),
+    {"hook": "The hook format/style", "example": "Real example from data", "sourceUrl": "URL from the data above", "source": "YouTube or Reddit"}
+  ] (5-7 hooks with real URLs),
   "contentTrending": [
-    {"topic": "Specific topic", "description": "What angle is working", "viewPotential": "High/Medium"}
-  ] (5-7 topics),
+    {"topic": "Specific topic", "description": "What angle is working", "viewPotential": "High/Medium", "sourceUrl": "URL from data", "source": "YouTube or Reddit"}
+  ] (5-7 topics with real URLs),
   "hashtagsTrending": ["hashtag1", "hashtag2", ...] (10-15 hashtags WITHOUT #),
   "topVideos": [
-    {"title": "Title", "views": "Views", "takeaway": "What to learn from this"}
-  ] (top 5 from YouTube data),
+    {"title": "Title", "views": "Views", "url": "YouTube URL", "channel": "Channel name"}
+  ] (top 5 from YouTube data with URLs),
   "summary": "2-3 sentence summary of what's trending and why"
 }
 
-Use the ACTUAL data above. Be specific and reference real titles/topics you see. Return valid JSON only.`;
+IMPORTANT: Use the ACTUAL URLs from the data above. Return valid JSON only.`;
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
     
@@ -220,6 +240,7 @@ Use the ACTUAL data above. Be specific and reference real titles/topics you see.
       }
     }
 
+    // Also include the raw source data with URLs
     const snapshot = {
       id: `research_${Date.now()}`,
       niche,
@@ -228,6 +249,8 @@ Use the ACTUAL data above. Be specific and reference real titles/topics you see.
         youtube: youtubeData.videos.length,
         reddit: redditData.posts.length,
       },
+      rawYouTubeVideos: youtubeData.videos.slice(0, 10), // Top 10 with URLs
+      rawRedditPosts: redditData.posts.slice(0, 10), // Top 10 with URLs
       ...parsedResult,
       createdAt: new Date().toISOString(),
     };
@@ -256,7 +279,6 @@ interface ChatMessage {
 // Handle chat messages about research results
 async function handleChat(message: string, researchContext: string, conversationHistory?: ChatMessage[]) {
   try {
-    // Build conversation context
     const history = conversationHistory || [];
     const conversationContext = history.length > 0 
       ? "\n\nPREVIOUS CONVERSATION:\n" + history.map(m => `${m.role === "user" ? "User" : "You"}: ${m.content}`).join("\n")
