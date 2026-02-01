@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/AppHeader";
 
@@ -14,9 +14,9 @@ interface User {
 }
 
 // Simple markdown renderer
-function renderMarkdown(text: string): JSX.Element[] {
+function renderMarkdown(text: string): React.ReactNode[] {
   const lines = text.split("\n");
-  const elements: JSX.Element[] = [];
+  const elements: React.ReactNode[] = [];
 
   lines.forEach((line, lineIndex) => {
     // Handle numbered lists
