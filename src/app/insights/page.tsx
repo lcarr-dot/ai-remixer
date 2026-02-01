@@ -70,8 +70,8 @@ function renderMarkdown(text: string): React.ReactNode[] {
 }
 
 // Render inline markdown (bold, etc.)
-function renderInlineMarkdown(text: string): (string | JSX.Element)[] {
-  const parts: (string | JSX.Element)[] = [];
+function renderInlineMarkdown(text: string): (string | React.ReactElement)[] {
+  const parts: (string | React.ReactElement)[] = [];
   const regex = /\*\*(.+?)\*\*/g;
   let lastIndex = 0;
   let match;
