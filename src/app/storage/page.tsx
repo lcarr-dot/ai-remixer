@@ -309,28 +309,28 @@ export default function StoragePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background classic-pattern">
+    <div className="h-screen bg-background classic-pattern overflow-hidden flex flex-col">
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-900/20 blur-[120px]" />
         <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-yellow-900/10 blur-[120px]" />
       </div>
 
-      <div className="relative z-10 max-w-6xl mx-auto px-6 py-6">
+      <div className="relative z-10 flex-1 flex flex-col max-w-6xl mx-auto px-4 py-3 w-full overflow-hidden">
         <AppHeader businessName={user?.businessName} />
 
         {/* Banner */}
-        <div className="bg-gold/10 border border-gold/30 rounded-xl p-3 mb-6 text-center">
-          <p className="text-sm text-gold">
-            📦 For best results, log <strong>YouTube + TikTok</strong> data first. Add other platforms when you can.
+        <div className="bg-gold/10 border border-gold/30 rounded-lg p-2 mb-3 text-center shrink-0">
+          <p className="text-xs text-gold">
+            📦 For best results, log <strong>YouTube + TikTok</strong> data first.
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="flex-1 grid lg:grid-cols-3 gap-4 min-h-0 overflow-hidden">
           {/* Input Panel */}
-          <div className="space-y-6">
+          <div className="space-y-3 overflow-auto">
             {/* File Upload */}
-            <div className="bg-surface rounded-2xl border border-border/50 p-6 elegant-border">
-              <h3 className="text-sm font-semibold text-gold mb-4">📁 Import File</h3>
+            <div className="bg-surface rounded-xl border border-border/50 p-4 elegant-border">
+              <h3 className="text-sm font-semibold text-gold mb-2">📁 Import File</h3>
               <input
                 ref={fileInputRef}
                 type="file"

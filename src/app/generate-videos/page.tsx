@@ -136,21 +136,21 @@ export default function GenerateVideosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background classic-pattern">
+    <div className="h-screen bg-background classic-pattern overflow-hidden flex flex-col">
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-900/20 blur-[120px]" />
         <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-yellow-900/10 blur-[120px]" />
       </div>
 
-      <div className="relative z-10 max-w-6xl mx-auto px-6 py-6">
+      <div className="relative z-10 flex-1 flex flex-col max-w-6xl mx-auto px-4 py-3 w-full overflow-hidden">
         <AppHeader businessName={user?.businessName} />
 
-        <div className="grid lg:grid-cols-5 gap-6">
+        <div className="flex-1 grid lg:grid-cols-5 gap-4 min-h-0 overflow-hidden">
           {/* Input Panel */}
-          <div className="lg:col-span-2 bg-surface rounded-2xl border border-border/50 p-6 elegant-border">
-            <h2 className="text-lg font-semibold text-cream mb-4">🎬 Generate Video</h2>
+          <div className="lg:col-span-2 bg-surface rounded-xl border border-border/50 p-4 elegant-border overflow-auto">
+            <h2 className="text-base font-semibold text-cream mb-3">🎬 Generate Video</h2>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gold/80 uppercase tracking-wider mb-2">
                   Topic / Idea <span className="text-red-400">*</span>
