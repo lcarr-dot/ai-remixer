@@ -6,9 +6,9 @@ import AppHeader from "@/components/AppHeader";
 
 interface InsightResponse {
   answer: string;
-  confidenceScore: number;
-  recommendedActions: string[];
-  missingDataRequests: string[];
+  patterns: string[];
+  topPerformers: string[];
+  recommendations: string[];
 }
 
 interface Message {
@@ -27,7 +27,7 @@ export default function InsightsPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [videoScope, setVideoScope] = useState("last10");
+  const [videoScope, setVideoScope] = useState("all");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -48,6 +48,9 @@ export default function InsightsPage() {
         return;
       }
       setUser(data.user);
+      
+      // Auto-ask for patterns on load
+      askQuestion("What patterns do you see in my content?");
     } catch {
       router.push("/login");
     } finally {
@@ -55,13 +58,10 @@ export default function InsightsPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
-
-    const userMessage = input.trim();
-    setInput("");
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+  const askQuestion = async (question: string) => {
+    if (isLoading) return;
+    
+    setMessages((prev) => [...prev, { role: "user", content: question }]);
     setIsLoading(true);
 
     try {
@@ -69,7 +69,7 @@ export default function InsightsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          question: userMessage,
+          question,
           videoScope,
         }),
       });
@@ -101,12 +101,20 @@ export default function InsightsPage() {
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+    const question = input.trim();
+    setInput("");
+    await askQuestion(question);
+  };
+
   const suggestedQuestions = [
-    "What content is performing best?",
-    "What hooks are working for me?",
-    "How can I improve my retention?",
-    "What topics should I explore next?",
-    "What's my best posting time?",
+    "What hooks are getting the most views?",
+    "Which topics perform best?",
+    "What patterns exist in my top videos?",
+    "What should I make more of?",
+    "What's working vs not working?",
   ];
 
   if (checkingAuth) {
@@ -124,28 +132,21 @@ export default function InsightsPage() {
         <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-yellow-900/10 blur-[120px]" />
       </div>
 
-      <div className="relative z-10 flex flex-col h-full max-w-4xl mx-auto px-6 py-6 w-full">
+      <div className="relative z-10 flex flex-col h-full max-w-5xl mx-auto px-4 py-3 w-full">
         <AppHeader businessName={user?.businessName} />
-
-        {/* Banner */}
-        <div className="bg-gold/10 border border-gold/30 rounded-xl p-3 mb-4 text-center shrink-0">
-          <p className="text-sm text-gold">
-            💡 For best insights, log <strong>YouTube + TikTok</strong> data first. Add other platforms when you can.
-          </p>
-        </div>
 
         {/* Chat Container */}
         <div className="flex-1 bg-surface rounded-2xl border border-border/50 elegant-border flex flex-col overflow-hidden">
-          {/* Video Scope Selector */}
+          {/* Header */}
           <div className="p-4 border-b border-border/30 shrink-0">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-cream">💡 Ask About Your Content</h2>
+              <h2 className="text-lg font-semibold text-cream">📊 Content Insights</h2>
               <select
                 value={videoScope}
                 onChange={(e) => setVideoScope(e.target.value)}
                 className="px-3 py-1.5 bg-surface-light rounded-lg border border-border/30 text-sm text-cream focus:border-gold/50 focus:outline-none"
               >
-                <option value="newest">Newest Video</option>
+                <option value="newest">Last 5 Videos</option>
                 <option value="last10">Last 10 Videos</option>
                 <option value="all">All Videos</option>
               </select>
@@ -154,24 +155,11 @@ export default function InsightsPage() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.length === 0 ? (
+            {messages.length === 0 && !isLoading ? (
               <div className="h-full flex flex-col items-center justify-center text-center">
-                <div className="text-4xl mb-4">💬</div>
-                <h3 className="text-cream font-medium mb-2">Ask me anything about your content</h3>
-                <p className="text-muted text-sm mb-6">
-                  I&apos;ll analyze your performance and give actionable insights
-                </p>
-                <div className="flex flex-wrap gap-2 justify-center max-w-md">
-                  {suggestedQuestions.map((q, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setInput(q)}
-                      className="px-3 py-1.5 bg-surface-light rounded-lg border border-border/30 text-xs text-gold/70 hover:text-gold hover:border-gold/30 transition-all"
-                    >
-                      {q}
-                    </button>
-                  ))}
-                </div>
+                <div className="text-4xl mb-4">📊</div>
+                <h3 className="text-cream font-medium mb-2">Analyzing your content...</h3>
+                <p className="text-muted text-sm">Looking for patterns in your data</p>
               </div>
             ) : (
               messages.map((msg, i) => (
@@ -180,7 +168,7 @@ export default function InsightsPage() {
                   className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[80%] p-4 rounded-2xl ${
+                    className={`max-w-[85%] p-4 rounded-2xl ${
                       msg.role === "user"
                         ? "bg-gold/20 text-cream"
                         : "bg-surface-light text-cream"
@@ -189,43 +177,46 @@ export default function InsightsPage() {
                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
 
                     {msg.insight && (
-                      <div className="mt-4 space-y-3 pt-3 border-t border-border/30">
-                        {/* Confidence */}
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted">Confidence:</span>
-                          <div className="flex-1 h-2 bg-surface rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gold"
-                              style={{ width: `${msg.insight.confidenceScore}%` }}
-                            />
-                          </div>
-                          <span className="text-xs text-gold">{msg.insight.confidenceScore}%</span>
-                        </div>
-
-                        {/* Recommended Actions */}
-                        {msg.insight.recommendedActions.length > 0 && (
+                      <div className="mt-4 space-y-4 pt-4 border-t border-border/30">
+                        {/* Patterns Found */}
+                        {msg.insight.patterns && msg.insight.patterns.length > 0 && (
                           <div>
-                            <p className="text-xs text-green-400 font-medium mb-1">✅ Recommended Actions:</p>
-                            <ul className="space-y-1">
-                              {msg.insight.recommendedActions.map((action, j) => (
-                                <li key={j} className="text-xs text-cream/80 flex items-start gap-2">
-                                  <span className="text-green-400/60">•</span>
-                                  {action}
+                            <p className="text-xs text-gold font-semibold mb-2 uppercase tracking-wider">🔍 Patterns Found</p>
+                            <ul className="space-y-1.5">
+                              {msg.insight.patterns.map((pattern, j) => (
+                                <li key={j} className="text-sm text-cream/90 flex items-start gap-2">
+                                  <span className="text-gold">→</span>
+                                  {pattern}
                                 </li>
                               ))}
                             </ul>
                           </div>
                         )}
 
-                        {/* Missing Data */}
-                        {msg.insight.missingDataRequests.length > 0 && (
+                        {/* Top Performers */}
+                        {msg.insight.topPerformers && msg.insight.topPerformers.length > 0 && (
                           <div>
-                            <p className="text-xs text-yellow-400 font-medium mb-1">⚠️ Missing Data:</p>
-                            <ul className="space-y-1">
-                              {msg.insight.missingDataRequests.map((req, j) => (
-                                <li key={j} className="text-xs text-cream/80 flex items-start gap-2">
-                                  <span className="text-yellow-400/60">•</span>
-                                  {req}
+                            <p className="text-xs text-green-400 font-semibold mb-2 uppercase tracking-wider">🏆 Top Performers</p>
+                            <ul className="space-y-1.5">
+                              {msg.insight.topPerformers.map((performer, j) => (
+                                <li key={j} className="text-sm text-cream/90 flex items-start gap-2">
+                                  <span className="text-green-400">★</span>
+                                  {performer}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Recommendations */}
+                        {msg.insight.recommendations && msg.insight.recommendations.length > 0 && (
+                          <div>
+                            <p className="text-xs text-yellow-400 font-semibold mb-2 uppercase tracking-wider">💡 Recommendations</p>
+                            <ul className="space-y-1.5">
+                              {msg.insight.recommendations.map((rec, j) => (
+                                <li key={j} className="text-sm text-cream/90 flex items-start gap-2">
+                                  <span className="text-yellow-400">•</span>
+                                  {rec}
                                 </li>
                               ))}
                             </ul>
@@ -242,14 +233,32 @@ export default function InsightsPage() {
                 <div className="bg-surface-light p-4 rounded-2xl">
                   <div className="flex items-center gap-2 text-gold/60">
                     <div className="w-2 h-2 bg-gold/60 rounded-full animate-pulse" />
-                    <div className="w-2 h-2 bg-gold/60 rounded-full animate-pulse delay-100" />
-                    <div className="w-2 h-2 bg-gold/60 rounded-full animate-pulse delay-200" />
-                    <span className="text-xs ml-2">Analyzing...</span>
+                    <div className="w-2 h-2 bg-gold/60 rounded-full animate-pulse" style={{ animationDelay: "0.2s" }} />
+                    <div className="w-2 h-2 bg-gold/60 rounded-full animate-pulse" style={{ animationDelay: "0.4s" }} />
+                    <span className="text-xs ml-2">Analyzing your data...</span>
                   </div>
                 </div>
               </div>
             )}
             <div ref={messagesEndRef} />
+          </div>
+
+          {/* Suggested Questions */}
+          <div className="px-4 py-2 border-t border-border/20 shrink-0">
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {suggestedQuestions.map((q, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setInput(q);
+                  }}
+                  disabled={isLoading}
+                  className="px-3 py-1.5 bg-surface rounded-lg border border-border/30 text-xs text-gold/70 hover:text-gold hover:border-gold/30 transition-all whitespace-nowrap disabled:opacity-50"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Input */}
@@ -259,7 +268,7 @@ export default function InsightsPage() {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask about your content performance..."
+                placeholder="Ask about your content patterns..."
                 disabled={isLoading}
                 className="flex-1 px-4 py-3 bg-surface-light rounded-xl border border-border/30 text-cream placeholder-muted/50 focus:border-gold/50 focus:outline-none disabled:opacity-50"
               />
