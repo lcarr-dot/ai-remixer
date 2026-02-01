@@ -21,16 +21,15 @@ export default function AppHeader({ businessName }: AppHeaderProps) {
   };
 
   const navItems = [
-    { href: "/app", label: "Remix", icon: "✦" },
-    { href: "/market-research", label: "Research", icon: "🔍" },
     { href: "/generate-videos", label: "Generate", icon: "🎬" },
+    { href: "/market-research", label: "Research", icon: "🔍" },
     { href: "/insights", label: "Insights", icon: "💡" },
     { href: "/storage", label: "Storage", icon: "📦" },
   ];
 
   return (
     <header className="flex justify-between items-center mb-4 shrink-0">
-      <Link href="/app" className="text-xl font-bold tracking-tight">
+      <Link href="/generate-videos" className="text-xl font-bold tracking-tight">
         <span className="gold-text">three seconds</span>
       </Link>
       <div className="flex items-center gap-2">

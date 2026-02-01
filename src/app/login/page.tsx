@@ -29,8 +29,8 @@ export default function LoginPage() {
         throw new Error(data.error || "Login failed");
       }
 
-      // Go directly to the app/remixer page
-      router.push("/app");
+      // Go to the generate page
+      router.push("/generate-videos");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

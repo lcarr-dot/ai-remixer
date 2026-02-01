@@ -79,7 +79,7 @@ export default function SignupPage() {
         throw new Error(data.error || "Signup failed");
       }
 
-      router.push("/app");
+      router.push("/generate-videos");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed");
     } finally {
