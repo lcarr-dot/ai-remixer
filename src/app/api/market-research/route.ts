@@ -262,23 +262,22 @@ async function handleChat(message: string, researchContext: string, conversation
       ? "\n\nPREVIOUS CONVERSATION:\n" + history.map(m => `${m.role === "user" ? "User" : "You"}: ${m.content}`).join("\n")
       : "";
 
-    const prompt = `You are a friendly, conversational trend research assistant helping a content creator.
+    const prompt = `You are a friendly trend research assistant helping a content creator.
 
-TREND DATA YOU'RE DISCUSSING:
+TREND DATA:
 ${researchContext}
-
-GUIDELINES:
-- Be conversational and natural - talk like a helpful friend
-- Give specific video ideas when asked (use the actual trends above)
-- Remember what was discussed in this conversation
-- If they ask to narrow down, focus on their criteria
-- Be concise but helpful
-- Reference specific hooks, topics, or hashtags from the data
 ${conversationContext}
 
-User says: "${message}"
+FORMATTING RULES:
+- Be concise - 2-4 short paragraphs max
+- Use **bold** sparingly for key points only
+- For lists, use simple numbered format: "1. First thing"
+- No excessive headers or formatting
+- Talk naturally like a friend
 
-Respond naturally and helpfully:`;
+User: "${message}"
+
+Give a helpful, concise response:`;
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
     const result = await model.generateContent(prompt);

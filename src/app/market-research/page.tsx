@@ -16,12 +16,6 @@ interface ContentTrending {
   viewPotential: string;
 }
 
-interface TopVideo {
-  title: string;
-  views: string;
-  takeaway: string;
-}
-
 interface ResearchSnapshot {
   id: string;
   niche: string;
@@ -29,7 +23,6 @@ interface ResearchSnapshot {
   hooksTrending: HookTrending[];
   contentTrending: ContentTrending[];
   hashtagsTrending: string[];
-  topVideos: TopVideo[];
   summary: string;
   createdAt: string;
 }
@@ -42,6 +35,92 @@ interface ChatMessage {
 interface User {
   businessName: string;
   niche?: string;
+}
+
+// Simple markdown renderer
+function renderMarkdown(text: string): JSX.Element[] {
+  const lines = text.split("\n");
+  const elements: JSX.Element[] = [];
+
+  lines.forEach((line, lineIndex) => {
+    // Handle numbered lists
+    const numberedMatch = line.match(/^(\d+)\.\s+\*\*(.+?)\*\*:?\s*(.*)$/);
+    if (numberedMatch) {
+      elements.push(
+        <div key={lineIndex} className="flex gap-2 mb-2">
+          <span className="text-gold font-bold shrink-0">{numberedMatch[1]}.</span>
+          <div>
+            <span className="font-semibold text-cream">{numberedMatch[2]}</span>
+            {numberedMatch[3] && <span className="text-cream/80"> {numberedMatch[3]}</span>}
+          </div>
+        </div>
+      );
+      return;
+    }
+
+    // Handle bullet points
+    if (line.trim().startsWith("* ") || line.trim().startsWith("- ")) {
+      const content = line.replace(/^[\s]*[\*\-]\s+/, "");
+      elements.push(
+        <div key={lineIndex} className="flex gap-2 mb-1 ml-2">
+          <span className="text-gold">•</span>
+          <span className="text-cream/90">{renderInlineMarkdown(content)}</span>
+        </div>
+      );
+      return;
+    }
+
+    // Handle headers
+    if (line.startsWith("**") && line.endsWith("**")) {
+      elements.push(
+        <p key={lineIndex} className="font-semibold text-gold mt-3 mb-1">
+          {line.replace(/\*\*/g, "")}
+        </p>
+      );
+      return;
+    }
+
+    // Regular paragraph with inline formatting
+    if (line.trim()) {
+      elements.push(
+        <p key={lineIndex} className="text-cream/90 mb-2">
+          {renderInlineMarkdown(line)}
+        </p>
+      );
+    }
+  });
+
+  return elements;
+}
+
+// Render inline markdown (bold, etc.)
+function renderInlineMarkdown(text: string): (string | JSX.Element)[] {
+  const parts: (string | JSX.Element)[] = [];
+  const regex = /\*\*(.+?)\*\*/g;
+  let lastIndex = 0;
+  let match;
+  let keyIndex = 0;
+
+  while ((match = regex.exec(text)) !== null) {
+    // Add text before the match
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    // Add the bold text
+    parts.push(
+      <strong key={keyIndex++} className="font-semibold text-cream">
+        {match[1]}
+      </strong>
+    );
+    lastIndex = regex.lastIndex;
+  }
+
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : [text];
 }
 
 export default function MarketResearchPage() {
@@ -145,7 +224,6 @@ export default function MarketResearchPage() {
     setIsChatting(true);
 
     try {
-      // Build context from current research
       const researchContext = `
 Niche: ${snapshot.niche}
 Summary: ${snapshot.summary}
@@ -166,7 +244,7 @@ Trending Hashtags: ${snapshot.hashtagsTrending?.map(h => `#${h}`).join(" ") || "
           type: "chat",
           message: userMessage,
           researchContext,
-          conversationHistory: chatMessages, // Send conversation history
+          conversationHistory: chatMessages,
         }),
       });
 
@@ -197,10 +275,10 @@ Trending Hashtags: ${snapshot.hashtagsTrending?.map(h => `#${h}`).join(" ") || "
   };
 
   const suggestedQuestions = [
-    "Give me 3 specific video ideas",
-    "Which hook would work best for beginners?",
-    "What's the most unique angle here?",
-    "How can I stand out from these trends?",
+    "Give me 3 video ideas",
+    "Best hook for beginners?",
+    "Most unique angle?",
+    "How to stand out?",
   ];
 
   if (checkingAuth) {
@@ -224,32 +302,32 @@ Trending Hashtags: ${snapshot.hashtagsTrending?.map(h => `#${h}`).join(" ") || "
         {/* Header Banner */}
         <div className="bg-gold/10 border border-gold/30 rounded-lg p-2 mb-3 text-center shrink-0">
           <p className="text-sm text-gold">
-            🔥 <strong>Find What&apos;s Trending</strong> — Scans YouTube & Reddit, then chat to narrow down ideas
+            🔥 <strong>Find What&apos;s Trending</strong> — Scans YouTube & Reddit, then chat to narrow down
           </p>
         </div>
 
         <div className="flex-1 grid lg:grid-cols-4 gap-3 min-h-0 overflow-hidden">
           {/* Input Panel */}
           <div className="bg-surface rounded-xl border border-border/50 p-4 elegant-border flex flex-col">
-            <h2 className="text-base font-semibold text-cream mb-3">🔍 Discover Trends</h2>
+            <h2 className="text-base font-semibold text-cream mb-3">🔍 Discover</h2>
 
             <div className="space-y-3 flex-1">
               <div>
                 <label className="block text-xs font-medium text-gold/80 uppercase tracking-wider mb-1">
-                  Your Niche <span className="text-red-400">*</span>
+                  Niche <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="text"
                   value={niche}
                   onChange={(e) => setNiche(e.target.value)}
-                  placeholder="e.g., Finance, Fitness, Tech..."
+                  placeholder="Finance, Fitness, Tech..."
                   className="w-full px-3 py-2 bg-surface-light rounded-lg border border-border/30 text-cream placeholder-muted/50 focus:border-gold/50 focus:outline-none text-sm"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-gold/80 uppercase tracking-wider mb-1">
-                  Keywords <span className="text-muted">(optional)</span>
+                  Keywords
                 </label>
                 <input
                   type="text"
@@ -281,38 +359,38 @@ Trending Hashtags: ${snapshot.hashtagsTrending?.map(h => `#${h}`).join(" ") || "
 
             {snapshot && (
               <p className="text-[10px] text-muted text-center mt-2">
-                Sources: {snapshot.sources?.youtube || 0} YouTube • {snapshot.sources?.reddit || 0} Reddit
+                {snapshot.sources?.youtube || 0} YouTube • {snapshot.sources?.reddit || 0} Reddit
               </p>
             )}
           </div>
 
-          {/* Results Panel - 2 columns */}
+          {/* Results Panel */}
           <div className="lg:col-span-2 grid grid-rows-3 gap-2 min-h-0 overflow-hidden">
-            {/* Hooks Trending */}
+            {/* Hooks */}
             <div className="bg-surface rounded-xl border border-border/50 p-3 elegant-border overflow-hidden flex flex-col">
-              <h3 className="text-xs font-semibold text-gold mb-2 shrink-0">🎣 HOOKS TRENDING</h3>
+              <h3 className="text-xs font-semibold text-gold mb-2 shrink-0">🎣 HOOKS</h3>
               {!snapshot ? (
                 <div className="flex-1 flex items-center justify-center text-muted text-xs">
-                  Run research to see trending hooks
+                  Run research first
                 </div>
               ) : (
                 <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
                   {snapshot.hooksTrending?.map((hook, i) => (
                     <div key={i} className="p-2 bg-surface-light rounded-lg">
                       <p className="text-xs text-cream font-medium">{hook.hook}</p>
-                      <p className="text-[10px] text-gold/70 mt-0.5">Ex: &quot;{hook.example}&quot;</p>
+                      <p className="text-[10px] text-gold/70 mt-0.5">&quot;{hook.example}&quot;</p>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Content Trending */}
+            {/* Content */}
             <div className="bg-surface rounded-xl border border-border/50 p-3 elegant-border overflow-hidden flex flex-col">
-              <h3 className="text-xs font-semibold text-gold mb-2 shrink-0">📈 CONTENT TRENDING</h3>
+              <h3 className="text-xs font-semibold text-gold mb-2 shrink-0">📈 CONTENT</h3>
               {!snapshot ? (
                 <div className="flex-1 flex items-center justify-center text-muted text-xs">
-                  Run research to see trending content
+                  Run research first
                 </div>
               ) : (
                 <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
@@ -335,7 +413,7 @@ Trending Hashtags: ${snapshot.hashtagsTrending?.map(h => `#${h}`).join(" ") || "
               )}
             </div>
 
-            {/* Hashtags Trending */}
+            {/* Hashtags */}
             <div className="bg-surface rounded-xl border border-border/50 p-3 elegant-border overflow-hidden flex flex-col">
               <div className="flex items-center justify-between mb-2 shrink-0">
                 <h3 className="text-xs font-semibold text-gold"># HASHTAGS</h3>
@@ -348,13 +426,13 @@ Trending Hashtags: ${snapshot.hashtagsTrending?.map(h => `#${h}`).join(" ") || "
                         : "bg-surface-light text-gold/70 hover:text-gold"
                     }`}
                   >
-                    {copiedHashtags ? "✓ Copied!" : "Copy All"}
+                    {copiedHashtags ? "✓" : "Copy"}
                   </button>
                 )}
               </div>
               {!snapshot ? (
                 <div className="flex-1 flex items-center justify-center text-muted text-xs">
-                  Run research to see trending hashtags
+                  Run research first
                 </div>
               ) : (
                 <div className="flex-1 overflow-y-auto">
@@ -374,23 +452,27 @@ Trending Hashtags: ${snapshot.hashtagsTrending?.map(h => `#${h}`).join(" ") || "
           </div>
 
           {/* Chat Panel */}
-          <div className="bg-surface rounded-xl border border-border/50 p-3 elegant-border flex flex-col overflow-hidden">
-            <h3 className="text-xs font-semibold text-gold mb-2 shrink-0">💬 Ask About Trends</h3>
+          <div className="bg-surface rounded-xl border border-border/50 elegant-border flex flex-col overflow-hidden">
+            {/* Chat Header */}
+            <div className="p-3 border-b border-border/30 shrink-0">
+              <h3 className="text-sm font-semibold text-gold">💬 Chat</h3>
+              <p className="text-[10px] text-muted">Ask to narrow down ideas</p>
+            </div>
             
             {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto space-y-2 mb-2">
+            <div className="flex-1 overflow-y-auto p-3 space-y-3">
               {!snapshot ? (
                 <div className="h-full flex items-center justify-center text-muted text-xs text-center p-4">
-                  Run research first, then ask questions to narrow down ideas
+                  Run research first
                 </div>
               ) : chatMessages.length === 0 ? (
                 <div className="space-y-2">
-                  <p className="text-[10px] text-muted text-center mb-2">Try asking:</p>
+                  <p className="text-[10px] text-muted text-center mb-3">Try asking:</p>
                   {suggestedQuestions.map((q, i) => (
                     <button
                       key={i}
                       onClick={() => setChatInput(q)}
-                      className="w-full text-left px-2 py-1.5 bg-surface-light rounded-lg text-[10px] text-gold/70 hover:text-gold hover:bg-gold/5 transition-all"
+                      className="w-full text-left px-3 py-2 bg-surface-light rounded-lg text-xs text-gold/70 hover:text-gold hover:bg-gold/5 transition-all border border-transparent hover:border-gold/20"
                     >
                       {q}
                     </button>
@@ -400,22 +482,29 @@ Trending Hashtags: ${snapshot.hashtagsTrending?.map(h => `#${h}`).join(" ") || "
                 chatMessages.map((msg, i) => (
                   <div
                     key={i}
-                    className={`p-2 rounded-lg text-xs ${
+                    className={`rounded-xl ${
                       msg.role === "user"
-                        ? "bg-gold/20 text-cream ml-4"
-                        : "bg-surface-light text-cream/90 mr-4"
+                        ? "bg-gold/20 p-3 ml-6"
+                        : "bg-surface-light p-4 mr-2"
                     }`}
                   >
-                    {msg.content}
+                    {msg.role === "user" ? (
+                      <p className="text-sm text-cream">{msg.content}</p>
+                    ) : (
+                      <div className="text-sm space-y-1">
+                        {renderMarkdown(msg.content)}
+                      </div>
+                    )}
                   </div>
                 ))
               )}
               {isChatting && (
-                <div className="p-2 bg-surface-light rounded-lg mr-4">
-                  <div className="flex items-center gap-1 text-gold/60">
-                    <div className="w-1.5 h-1.5 bg-gold/60 rounded-full animate-pulse" />
-                    <div className="w-1.5 h-1.5 bg-gold/60 rounded-full animate-pulse" style={{ animationDelay: "0.2s" }} />
-                    <div className="w-1.5 h-1.5 bg-gold/60 rounded-full animate-pulse" style={{ animationDelay: "0.4s" }} />
+                <div className="p-3 bg-surface-light rounded-xl mr-2">
+                  <div className="flex items-center gap-2 text-gold/60">
+                    <div className="w-2 h-2 bg-gold/60 rounded-full animate-pulse" />
+                    <div className="w-2 h-2 bg-gold/60 rounded-full animate-pulse" style={{ animationDelay: "0.2s" }} />
+                    <div className="w-2 h-2 bg-gold/60 rounded-full animate-pulse" style={{ animationDelay: "0.4s" }} />
+                    <span className="text-xs ml-1">Thinking...</span>
                   </div>
                 </div>
               )}
@@ -423,22 +512,22 @@ Trending Hashtags: ${snapshot.hashtagsTrending?.map(h => `#${h}`).join(" ") || "
             </div>
 
             {/* Chat Input */}
-            <form onSubmit={handleChatSubmit} className="shrink-0">
+            <form onSubmit={handleChatSubmit} className="p-3 border-t border-border/30 shrink-0">
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
-                  placeholder={snapshot ? "Ask about the trends..." : "Run research first"}
+                  placeholder={snapshot ? "Ask anything..." : "Run research first"}
                   disabled={!snapshot || isChatting}
-                  className="flex-1 px-3 py-2 bg-surface-light rounded-lg border border-border/30 text-cream placeholder-muted/50 focus:border-gold/50 focus:outline-none text-xs disabled:opacity-50"
+                  className="flex-1 px-3 py-2.5 bg-surface-light rounded-lg border border-border/30 text-cream placeholder-muted/50 focus:border-gold/50 focus:outline-none text-sm disabled:opacity-50"
                 />
                 <button
                   type="submit"
                   disabled={!snapshot || isChatting || !chatInput.trim()}
-                  className="px-3 py-2 bg-gold/20 border border-gold/30 text-gold rounded-lg text-xs font-medium hover:bg-gold/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2.5 bg-gradient-to-r from-gold to-gold-light text-forest rounded-lg text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Ask
+                  →
                 </button>
               </div>
             </form>

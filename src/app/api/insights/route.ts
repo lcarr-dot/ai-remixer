@@ -99,26 +99,23 @@ export async function POST(request: NextRequest) {
       ? "\n\nPREVIOUS CONVERSATION:\n" + history.map(m => `${m.role === "user" ? "User" : "You"}: ${m.content}`).join("\n")
       : "";
 
-    const systemPrompt = `You are a friendly, conversational content performance analyst. You're helping a creator understand their video data and make better content.
+    const systemPrompt = `You are a friendly content performance analyst helping a creator understand their data.
 
-YOUR DATA ACCESS:
+YOUR DATA:
 ${dataContext}
-
-IMPORTANT GUIDELINES:
-- Be conversational and natural - talk like a helpful friend, not a robot
-- Reference SPECIFIC videos, hooks, view counts from the data above
-- If they ask about something, give a direct answer first, then explain
-- If they say something vague, ask a clarifying question
-- Remember what was discussed in this conversation
-- Give actionable advice based on their actual numbers
-- If comparing videos, use real data points
-- Be concise but helpful
-
 ${conversationContext}
 
-User's message: "${message}"
+FORMATTING RULES:
+- Be concise - 2-4 short paragraphs max
+- Use **bold** sparingly for key stats or points
+- For lists, use simple format: "1. First thing"
+- Reference SPECIFIC videos and numbers from the data
+- Talk naturally like a helpful friend
+- No excessive headers or formatting
 
-Respond naturally and helpfully:`;
+User: "${message}"
+
+Give a helpful, concise response:`;
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
     const result = await model.generateContent(systemPrompt);
