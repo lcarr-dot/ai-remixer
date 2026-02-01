@@ -52,9 +52,13 @@ interface VideoEntry {
   title?: string;
   platform?: string;
   hook?: string;
+  description?: string;
   views?: number;
   likes?: number;
   comments?: number;
+  shares?: number;
+  saves?: number;
+  duration?: number;
   avgWatchTime?: number;
   postedAt?: string;
   createdAt: string;
@@ -69,6 +73,38 @@ interface MissingGap {
 
 interface User {
   businessName: string;
+}
+
+// Helper to format duration in seconds to MM:SS or HH:MM:SS
+function formatDuration(seconds: number): string {
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  
+  if (hrs > 0) {
+    return `${hrs}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  }
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+// Helper to format dates nicely
+function formatDate(dateStr: string): string {
+  // Handle various date formats
+  if (!dateStr) return "-";
+  
+  // If it's already in YYYY-MM-DD format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const [year, month, day] = dateStr.split("-");
+    return `${month}/${day}/${year}`;
+  }
+  
+  // Try to parse as date
+  const date = new Date(dateStr);
+  if (!isNaN(date.getTime())) {
+    return date.toLocaleDateString();
+  }
+  
+  return dateStr;
 }
 
 export default function StoragePage() {
@@ -120,39 +156,38 @@ export default function StoragePage() {
 
   const calculateMissingGaps = (entries: VideoEntry[]) => {
     const gaps: Record<string, { count: number; videoIds: string[] }> = {
-      "YouTube views": { count: 0, videoIds: [] },
-      "TikTok views": { count: 0, videoIds: [] },
-      "Hook text": { count: 0, videoIds: [] },
-      "Avg watch time": { count: 0, videoIds: [] },
+      "Title": { count: 0, videoIds: [] },
+      "Views": { count: 0, videoIds: [] },
       "Likes": { count: 0, videoIds: [] },
       "Comments": { count: 0, videoIds: [] },
+      "Duration": { count: 0, videoIds: [] },
+      "Post Date": { count: 0, videoIds: [] },
     };
 
     entries.forEach((entry) => {
-      if (!entry.views) {
-        if (entry.platform === "youtube") {
-          gaps["YouTube views"].count++;
-          gaps["YouTube views"].videoIds.push(entry.id);
-        } else if (entry.platform === "tiktok") {
-          gaps["TikTok views"].count++;
-          gaps["TikTok views"].videoIds.push(entry.id);
-        }
+      if (!entry.title) {
+        gaps["Title"].count++;
+        gaps["Title"].videoIds.push(entry.id);
       }
-      if (!entry.hook) {
-        gaps["Hook text"].count++;
-        gaps["Hook text"].videoIds.push(entry.id);
+      if (entry.views === undefined) {
+        gaps["Views"].count++;
+        gaps["Views"].videoIds.push(entry.id);
       }
-      if (!entry.avgWatchTime) {
-        gaps["Avg watch time"].count++;
-        gaps["Avg watch time"].videoIds.push(entry.id);
-      }
-      if (!entry.likes) {
+      if (entry.likes === undefined) {
         gaps["Likes"].count++;
         gaps["Likes"].videoIds.push(entry.id);
       }
-      if (!entry.comments) {
+      if (entry.comments === undefined) {
         gaps["Comments"].count++;
         gaps["Comments"].videoIds.push(entry.id);
+      }
+      if (entry.duration === undefined) {
+        gaps["Duration"].count++;
+        gaps["Duration"].videoIds.push(entry.id);
+      }
+      if (!entry.postedAt) {
+        gaps["Post Date"].count++;
+        gaps["Post Date"].videoIds.push(entry.id);
       }
     });
 
@@ -431,48 +466,52 @@ export default function StoragePage() {
                 <p className="text-xs text-muted">Upload a file or tell the AI about your videos</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
+              <div className="overflow-x-auto flex-1">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-surface">
                     <tr className="border-b border-border/30">
-                      <th className="text-left py-2 px-3 text-gold/80 font-medium">Title</th>
-                      <th className="text-left py-2 px-3 text-gold/80 font-medium">Platform</th>
-                      <th className="text-left py-2 px-3 text-gold/80 font-medium">Hook</th>
-                      <th className="text-right py-2 px-3 text-gold/80 font-medium">Views</th>
-                      <th className="text-right py-2 px-3 text-gold/80 font-medium">Likes</th>
-                      <th className="text-right py-2 px-3 text-gold/80 font-medium">Posted</th>
+                      <th className="text-left py-2 px-2 text-gold/80 font-medium">Title</th>
+                      <th className="text-left py-2 px-2 text-gold/80 font-medium">Platform</th>
+                      <th className="text-right py-2 px-2 text-gold/80 font-medium">Views</th>
+                      <th className="text-right py-2 px-2 text-gold/80 font-medium">Likes</th>
+                      <th className="text-right py-2 px-2 text-gold/80 font-medium">Comments</th>
+                      <th className="text-right py-2 px-2 text-gold/80 font-medium">Duration</th>
+                      <th className="text-right py-2 px-2 text-gold/80 font-medium">Posted</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredEntries.map((entry) => (
                       <tr key={entry.id} className="border-b border-border/20 hover:bg-surface-light/50">
-                        <td className="py-3 px-3 text-cream/90">
-                          {entry.title || <span className="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 text-xs">Missing</span>}
+                        <td className="py-2 px-2 text-cream/90 max-w-[180px] truncate" title={entry.title}>
+                          {entry.title || <span className="px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 text-[10px]">Missing</span>}
                         </td>
-                        <td className="py-3 px-3 text-cream/70 capitalize">{entry.platform || "-"}</td>
-                        <td className="py-3 px-3 max-w-[150px] truncate">
-                          {entry.hook ? (
-                            <span className="text-cream/70">{entry.hook}</span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 text-xs">Missing</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3 text-right">
+                        <td className="py-2 px-2 text-cream/70 capitalize">{entry.platform || "-"}</td>
+                        <td className="py-2 px-2 text-right">
                           {entry.views !== undefined ? (
                             <span className="text-cream">{entry.views.toLocaleString()}</span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 text-xs">Missing</span>
+                            <span className="px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 text-[10px]">Missing</span>
                           )}
                         </td>
-                        <td className="py-3 px-3 text-right">
+                        <td className="py-2 px-2 text-right">
                           {entry.likes !== undefined ? (
                             <span className="text-cream">{entry.likes.toLocaleString()}</span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 text-xs">Missing</span>
+                            <span className="px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 text-[10px]">Missing</span>
                           )}
                         </td>
-                        <td className="py-3 px-3 text-right text-cream/50">
-                          {entry.postedAt ? new Date(entry.postedAt).toLocaleDateString() : "-"}
+                        <td className="py-2 px-2 text-right">
+                          {entry.comments !== undefined ? (
+                            <span className="text-cream">{entry.comments.toLocaleString()}</span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 text-[10px]">Missing</span>
+                          )}
+                        </td>
+                        <td className="py-2 px-2 text-right text-cream/70">
+                          {entry.duration ? formatDuration(entry.duration) : "-"}
+                        </td>
+                        <td className="py-2 px-2 text-right text-cream/70">
+                          {entry.postedAt ? formatDate(entry.postedAt) : "-"}
                         </td>
                       </tr>
                     ))}
@@ -490,17 +529,21 @@ export default function StoragePage() {
                   onClick={() => {
                     // Export CSV functionality
                     const csv = [
-                      ["Title", "Platform", "Hook", "Views", "Likes", "Posted"],
+                      ["Title", "Platform", "Views", "Likes", "Comments", "Shares", "Duration", "Posted", "Hook", "Description"],
                       ...entries.map((e) => [
                         e.title || "",
                         e.platform || "",
-                        e.hook || "",
                         e.views?.toString() || "",
                         e.likes?.toString() || "",
+                        e.comments?.toString() || "",
+                        e.shares?.toString() || "",
+                        e.duration ? formatDuration(e.duration) : "",
                         e.postedAt || "",
+                        e.hook || "",
+                        e.description || "",
                       ]),
                     ]
-                      .map((row) => row.join(","))
+                      .map((row) => row.map(cell => `"${cell}"`).join(","))
                       .join("\n");
 
                     const blob = new Blob([csv], { type: "text/csv" });

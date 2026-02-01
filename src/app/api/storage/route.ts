@@ -13,10 +13,13 @@ const parsedLogSchema = z.object({
   title: z.string().optional(),
   platform: z.string().optional(),
   hook: z.string().optional(),
+  description: z.string().optional(),
   views: z.number().optional(),
   likes: z.number().optional(),
   comments: z.number().optional(),
   shares: z.number().optional(),
+  saves: z.number().optional(),
+  duration: z.number().optional(),
   avgWatchTime: z.number().optional(),
   postedAt: z.string().optional(),
   confidence: z.number(),
@@ -90,12 +93,15 @@ Return JSON with these fields (only include fields you can extract with confiden
   "title": "video title if mentioned",
   "platform": "youtube/tiktok/instagram/shorts (lowercase)",
   "hook": "the hook text if mentioned",
+  "description": "video description/caption if mentioned",
   "views": number (parse 1.2k as 1200, 12k as 12000, etc),
   "likes": number,
   "comments": number,
   "shares": number,
+  "saves": number,
+  "duration": number in seconds,
   "avgWatchTime": number in seconds,
-  "postedAt": "ISO date string if date mentioned",
+  "postedAt": "ISO date string if date mentioned (YYYY-MM-DD format)",
   "confidence": 0-100 (how confident you are in the parsing)
 }
 
@@ -103,8 +109,8 @@ Be lenient - extract partial info. Handle shorthand like "1.2k" or "12k". Return
 
       const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
       
-      let result = await model.generateContent(prompt);
-      let responseText = result.response.text();
+      const result = await model.generateContent(prompt);
+      const responseText = result.response.text();
 
       let parsedData;
       try {
@@ -179,7 +185,7 @@ Be lenient - extract partial info. Handle shorthand like "1.2k" or "12k". Return
   }
 }
 
-// PUT - Upload and import file
+// PUT - Upload and import file with AI-powered parsing
 export async function PUT(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
@@ -196,88 +202,7 @@ export async function PUT(request: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const fileName = file.name.toLowerCase();
-    let entries: Record<string, unknown>[] = [];
-
-    // Parse file based on type
-    if (fileName.endsWith(".csv")) {
-      const text = buffer.toString("utf-8");
-      const lines = text.split("\n").filter((l) => l.trim());
-      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
-      
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(",");
-        const entry: Record<string, unknown> = {};
-        
-        headers.forEach((header, idx) => {
-          const value = values[idx]?.trim();
-          if (value) {
-            // Map common column names
-            if (header.includes("title") || header.includes("name")) {
-              entry.title = value;
-            } else if (header.includes("platform")) {
-              entry.platform = value.toLowerCase();
-            } else if (header.includes("view")) {
-              entry.views = parseNumber(value);
-            } else if (header.includes("like")) {
-              entry.likes = parseNumber(value);
-            } else if (header.includes("comment")) {
-              entry.comments = parseNumber(value);
-            } else if (header.includes("hook")) {
-              entry.hook = value;
-            } else if (header.includes("date") || header.includes("posted")) {
-              entry.postedAt = value;
-            }
-          }
-        });
-        
-        if (Object.keys(entry).length > 0) {
-          entries.push(entry);
-        }
-      }
-    } else if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
-      const workbook = XLSX.read(buffer, { type: "buffer" });
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-      const data = XLSX.utils.sheet_to_json(sheet) as Record<string, unknown>[];
-      
-      entries = data.map((row) => {
-        const entry: Record<string, unknown> = {};
-        
-        Object.entries(row).forEach(([key, value]) => {
-          const lowerKey = key.toLowerCase();
-          if (lowerKey.includes("title") || lowerKey.includes("name")) {
-            entry.title = String(value);
-          } else if (lowerKey.includes("platform")) {
-            entry.platform = String(value).toLowerCase();
-          } else if (lowerKey.includes("view")) {
-            entry.views = parseNumber(String(value));
-          } else if (lowerKey.includes("like")) {
-            entry.likes = parseNumber(String(value));
-          } else if (lowerKey.includes("comment")) {
-            entry.comments = parseNumber(String(value));
-          } else if (lowerKey.includes("hook")) {
-            entry.hook = String(value);
-          } else if (lowerKey.includes("date") || lowerKey.includes("posted")) {
-            entry.postedAt = String(value);
-          }
-        });
-        
-        return entry;
-      }).filter((e) => Object.keys(e).length > 0);
-    } else if (fileName.endsWith(".json")) {
-      const jsonData = JSON.parse(buffer.toString("utf-8"));
-      entries = Array.isArray(jsonData) ? jsonData : [jsonData];
-    } else if (fileName.endsWith(".txt")) {
-      // Parse as line-by-line entries
-      const text = buffer.toString("utf-8");
-      const lines = text.split("\n").filter((l) => l.trim());
-      
-      entries = lines.map((line) => ({
-        title: line.trim().substring(0, 100),
-        rawText: line.trim(),
-      }));
-    }
-
+    
     // Store original file
     await put(
       `uploads/${userId}/${Date.now()}_${file.name}`,
@@ -285,23 +210,141 @@ export async function PUT(request: NextRequest) {
       { access: "public" }
     );
 
+    // Extract raw data from file
+    let rawData: Record<string, unknown>[] = [];
+
+    if (fileName.endsWith(".csv")) {
+      const text = buffer.toString("utf-8");
+      const lines = text.split("\n").filter((l) => l.trim());
+      const headers = lines[0].split(",").map((h) => h.trim());
+      
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(",");
+        const row: Record<string, unknown> = {};
+        headers.forEach((header, idx) => {
+          row[header] = values[idx]?.trim() || "";
+        });
+        rawData.push(row);
+      }
+    } else if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+      const workbook = XLSX.read(buffer, { type: "buffer", cellDates: true });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      rawData = XLSX.utils.sheet_to_json(sheet, { raw: false, dateNF: "yyyy-mm-dd" }) as Record<string, unknown>[];
+    } else if (fileName.endsWith(".json")) {
+      const jsonData = JSON.parse(buffer.toString("utf-8"));
+      rawData = Array.isArray(jsonData) ? jsonData : [jsonData];
+    } else if (fileName.endsWith(".txt")) {
+      const text = buffer.toString("utf-8");
+      const lines = text.split("\n").filter((l) => l.trim());
+      rawData = lines.map((line) => ({ raw_content: line.trim() }));
+    } else {
+      return NextResponse.json({ error: "Unsupported file type" }, { status: 400 });
+    }
+
+    if (rawData.length === 0) {
+      return NextResponse.json({ error: "No data found in file" }, { status: 400 });
+    }
+
+    // Use Gemini to intelligently map columns
+    const sampleRows = rawData.slice(0, 3);
+    const columns = Object.keys(rawData[0]);
+    
+    const mappingPrompt = `You are parsing a spreadsheet with video/content performance data.
+
+Columns in the spreadsheet: ${JSON.stringify(columns)}
+
+Sample rows:
+${JSON.stringify(sampleRows, null, 2)}
+
+Create a mapping from the spreadsheet columns to these standard fields:
+- title: video title/name
+- platform: social media platform (youtube, tiktok, instagram, etc)
+- hook: the hook/opening line
+- description: video description/caption
+- views: view count
+- likes: like count  
+- comments: comment count
+- shares: share count
+- saves: save count
+- duration: video length in seconds (convert from MM:SS or HH:MM:SS format if needed)
+- postedAt: post date (convert to YYYY-MM-DD format)
+
+Return a JSON object mapping spreadsheet column names to standard field names.
+Only include mappings you're confident about. Example:
+{
+  "Video Title": "title",
+  "Platform": "platform",
+  "Views": "views",
+  "Post Date": "postedAt"
+}
+
+Return valid JSON only.`;
+
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+    const mappingResult = await model.generateContent(mappingPrompt);
+    const mappingText = mappingResult.response.text();
+    
+    let columnMapping: Record<string, string> = {};
+    try {
+      const jsonMatch = mappingText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        columnMapping = JSON.parse(jsonMatch[0]);
+      }
+    } catch {
+      // Fallback to basic mapping
+      columnMapping = {};
+    }
+
+    // Transform data using the mapping
+    const entries = rawData.map((row) => {
+      const entry: Record<string, unknown> = { type: "video_log" };
+      
+      Object.entries(row).forEach(([colName, value]) => {
+        const mappedField = columnMapping[colName];
+        if (mappedField && value !== undefined && value !== null && value !== "") {
+          const strValue = String(value);
+          
+          // Parse based on field type
+          if (["views", "likes", "comments", "shares", "saves"].includes(mappedField)) {
+            entry[mappedField] = parseNumber(strValue);
+          } else if (mappedField === "duration") {
+            entry[mappedField] = parseDuration(strValue);
+          } else if (mappedField === "postedAt") {
+            entry[mappedField] = parseDate(strValue);
+          } else if (mappedField === "platform") {
+            entry[mappedField] = strValue.toLowerCase();
+          } else {
+            entry[mappedField] = strValue;
+          }
+        }
+      });
+      
+      // Store original row data for reference
+      entry.rawData = row;
+      entry.importedFrom = file.name;
+      entry.importedAt = new Date().toISOString();
+      
+      return entry;
+    });
+
     // Save parsed entries
     let imported = 0;
     for (const entry of entries) {
-      const entryId = `import_${Date.now()}_${imported}`;
-      
-      await put(
-        `storage/${userId}/${entryId}.json`,
-        JSON.stringify({
-          type: "video_log",
-          ...entry,
-          importedFrom: file.name,
-          importedAt: new Date().toISOString(),
-        }),
-        { access: "public", contentType: "application/json" }
-      );
-      
-      imported++;
+      if (Object.keys(entry).length > 3) { // Has more than just type, rawData, importedFrom
+        const entryId = `import_${Date.now()}_${imported}`;
+        
+        await put(
+          `storage/${userId}/${entryId}.json`,
+          JSON.stringify(entry),
+          { access: "public", contentType: "application/json" }
+        );
+        
+        imported++;
+        
+        // Small delay to ensure unique timestamps
+        await new Promise(resolve => setTimeout(resolve, 5));
+      }
     }
 
     // Save audit log
@@ -310,13 +353,20 @@ export async function PUT(request: NextRequest) {
       JSON.stringify({
         action: "import",
         fileName: file.name,
+        totalRows: rawData.length,
         entriesImported: imported,
+        columnMapping,
         timestamp: new Date().toISOString(),
       }),
       { access: "public", contentType: "application/json" }
     );
 
-    return NextResponse.json({ success: true, imported });
+    return NextResponse.json({ 
+      success: true, 
+      imported,
+      totalRows: rawData.length,
+      mappedColumns: Object.keys(columnMapping).length
+    });
   } catch (error) {
     console.error("Storage PUT error:", error);
     return NextResponse.json(
@@ -334,13 +384,73 @@ function parseNumber(value: string): number | undefined {
   
   if (cleaned.endsWith("k")) {
     const num = parseFloat(cleaned.slice(0, -1));
-    return isNaN(num) ? undefined : num * 1000;
+    return isNaN(num) ? undefined : Math.round(num * 1000);
   }
   if (cleaned.endsWith("m")) {
     const num = parseFloat(cleaned.slice(0, -1));
-    return isNaN(num) ? undefined : num * 1000000;
+    return isNaN(num) ? undefined : Math.round(num * 1000000);
   }
   
   const num = parseFloat(cleaned);
-  return isNaN(num) ? undefined : num;
+  return isNaN(num) ? undefined : Math.round(num);
+}
+
+// Helper to parse duration from various formats (MM:SS, HH:MM:SS, or seconds)
+function parseDuration(value: string): number | undefined {
+  if (!value) return undefined;
+  
+  const cleaned = value.trim();
+  
+  // Already a number (seconds)
+  if (/^\d+$/.test(cleaned)) {
+    return parseInt(cleaned);
+  }
+  
+  // MM:SS format
+  const mmss = cleaned.match(/^(\d+):(\d+)$/);
+  if (mmss) {
+    return parseInt(mmss[1]) * 60 + parseInt(mmss[2]);
+  }
+  
+  // HH:MM:SS format
+  const hhmmss = cleaned.match(/^(\d+):(\d+):(\d+)$/);
+  if (hhmmss) {
+    return parseInt(hhmmss[1]) * 3600 + parseInt(hhmmss[2]) * 60 + parseInt(hhmmss[3]);
+  }
+  
+  return undefined;
+}
+
+// Helper to parse dates to YYYY-MM-DD format
+function parseDate(value: string): string | undefined {
+  if (!value) return undefined;
+  
+  const cleaned = value.trim();
+  
+  // Try to parse as date
+  const date = new Date(cleaned);
+  if (!isNaN(date.getTime())) {
+    return date.toISOString().split("T")[0];
+  }
+  
+  // Handle MM/DD/YYYY or DD/MM/YYYY formats
+  const parts = cleaned.split(/[\/\-\.]/);
+  if (parts.length === 3) {
+    const [a, b, c] = parts.map(p => parseInt(p));
+    
+    // Assume MM/DD/YYYY if first number <= 12
+    if (a <= 12 && c > 100) {
+      return `${c}-${String(a).padStart(2, "0")}-${String(b).padStart(2, "0")}`;
+    }
+    // DD/MM/YYYY
+    if (b <= 12 && c > 100) {
+      return `${c}-${String(b).padStart(2, "0")}-${String(a).padStart(2, "0")}`;
+    }
+    // YYYY/MM/DD
+    if (a > 100) {
+      return `${a}-${String(b).padStart(2, "0")}-${String(c).padStart(2, "0")}`;
+    }
+  }
+  
+  return cleaned;
 }
