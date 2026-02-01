@@ -14,8 +14,8 @@ export default function GenerateVideosPage() {
   const [topic, setTopic] = useState("");
   const [platform, setPlatform] = useState("tiktok");
   const [duration, setDuration] = useState("60");
-  const [uploadedFile, setUploadedFile] = useState<string | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState<string>("");
+  const [isParsingFile, setIsParsingFile] = useState(false);
   
   // Generated content states
   const [hooks, setHooks] = useState<string[]>([]);
@@ -59,24 +59,38 @@ export default function GenerateVideosPage() {
     if (!file) return;
 
     setUploadedFileName(file.name);
+    setIsParsingFile(true);
+    setError("");
 
-    // Read file content
-    if (file.type === "application/pdf") {
-      // For PDF, we'll just store the name and let the API handle it
-      const reader = new FileReader();
-      reader.onload = () => {
-        setUploadedFile(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      // For text files
-      const text = await file.text();
-      setUploadedFile(text);
+    try {
+      // Send file to API to extract text
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/parse-file", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to parse file");
+      }
+
+      // Put the extracted text into the topic field
+      setTopic(data.text);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to parse file");
+      setUploadedFileName("");
+    } finally {
+      setIsParsingFile(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
   const generateContent = async (type: "hook" | "script" | "caption" | "all") => {
-    if (!topic.trim() && !uploadedFile) {
+    if (!topic.trim()) {
       setError("Please enter a topic or upload a file");
       return;
     }
@@ -96,7 +110,6 @@ export default function GenerateVideosPage() {
           topic,
           platform,
           duration: parseInt(duration),
-          fileContent: uploadedFile,
           generateType: type,
         }),
       });
@@ -138,8 +151,8 @@ export default function GenerateVideosPage() {
     }
   };
 
-  const clearFile = () => {
-    setUploadedFile(null);
+  const clearTopic = () => {
+    setTopic("");
     setUploadedFileName("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -184,48 +197,48 @@ export default function GenerateVideosPage() {
         <div className="flex-1 grid lg:grid-cols-2 gap-4 min-h-0 overflow-hidden px-2">
           {/* Input Panel - Left Side */}
           <div className="bg-surface rounded-xl border border-border/50 p-5 elegant-border overflow-auto">
-            <h2 className="text-sm font-semibold text-cream mb-3">🎬 What's the video about?</h2>
+            <h2 className="text-sm font-semibold text-cream mb-3">🎬 What&apos;s the video about?</h2>
 
             <div className="space-y-3">
-              {/* Topic Input */}
+              {/* Topic Input with File Upload Button */}
               <div>
-                <label className="block text-[10px] font-medium text-gold/80 uppercase tracking-wider mb-1">
-                  Topic / Idea
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[10px] font-medium text-gold/80 uppercase tracking-wider">
+                    Topic / Idea {uploadedFileName && <span className="text-green-400">({uploadedFileName})</span>}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {topic && (
+                      <button
+                        onClick={clearTopic}
+                        className="text-[10px] text-red-400 hover:text-red-300"
+                      >
+                        Clear
+                      </button>
+                    )}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.txt,.doc,.docx"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isParsingFile}
+                      className="text-[10px] px-2 py-0.5 rounded bg-gold/10 border border-gold/30 text-gold hover:bg-gold/20 transition-all disabled:opacity-50"
+                    >
+                      {isParsingFile ? "Reading..." : "📄 Upload PDF"}
+                    </button>
+                  </div>
+                </div>
                 <textarea
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
-                  placeholder="Describe your video idea..."
-                  rows={3}
-                  className="w-full px-3 py-2 bg-surface-light rounded-lg border border-border/30 text-cream placeholder-muted/50 focus:border-gold/50 focus:outline-none resize-none text-sm"
+                  placeholder={isParsingFile ? "Extracting text from file..." : "Describe your video idea or upload a PDF to auto-fill..."}
+                  rows={6}
+                  disabled={isParsingFile}
+                  className="w-full px-3 py-2 bg-surface-light rounded-lg border border-border/30 text-cream placeholder-muted/50 focus:border-gold/50 focus:outline-none resize-none text-sm disabled:opacity-50"
                 />
-              </div>
-
-              {/* File Upload */}
-              <div>
-                <label className="block text-[10px] font-medium text-gold/80 uppercase tracking-wider mb-1">
-                  Reference Material <span className="text-muted">(optional)</span>
-                </label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.txt,.doc,.docx"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-                {uploadedFile ? (
-                  <div className="flex items-center justify-between px-3 py-2 bg-surface-light rounded-lg border border-gold/30">
-                    <span className="text-xs text-cream truncate">{uploadedFileName}</span>
-                    <button onClick={clearFile} className="text-red-400 text-xs hover:text-red-300">✕</button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full py-2 rounded-lg border border-dashed border-border/50 hover:border-gold/50 text-muted hover:text-gold transition-all text-xs"
-                  >
-                    📄 Upload PDF or Text
-                  </button>
-                )}
               </div>
 
               {/* Platform & Duration */}
@@ -267,7 +280,7 @@ export default function GenerateVideosPage() {
               <div className="pt-2 space-y-2">
                 <button
                   onClick={() => generateContent("all")}
-                  disabled={isLoading}
+                  disabled={isLoading || isParsingFile}
                   className={`w-full py-3 rounded-xl font-semibold uppercase tracking-wide transition-all text-sm ${
                     loadingAll
                       ? "bg-gold/50 cursor-not-allowed text-forest"
@@ -280,7 +293,7 @@ export default function GenerateVideosPage() {
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={() => generateContent("hook")}
-                    disabled={isLoading}
+                    disabled={isLoading || isParsingFile}
                     className={`py-2 rounded-lg border text-xs font-medium transition-all ${
                       loadingHook
                         ? "bg-gold/20 border-gold/30 text-gold/50 cursor-not-allowed"
@@ -291,7 +304,7 @@ export default function GenerateVideosPage() {
                   </button>
                   <button
                     onClick={() => generateContent("script")}
-                    disabled={isLoading}
+                    disabled={isLoading || isParsingFile}
                     className={`py-2 rounded-lg border text-xs font-medium transition-all ${
                       loadingScript
                         ? "bg-gold/20 border-gold/30 text-gold/50 cursor-not-allowed"
@@ -302,7 +315,7 @@ export default function GenerateVideosPage() {
                   </button>
                   <button
                     onClick={() => generateContent("caption")}
-                    disabled={isLoading}
+                    disabled={isLoading || isParsingFile}
                     className={`py-2 rounded-lg border text-xs font-medium transition-all ${
                       loadingCaption
                         ? "bg-gold/20 border-gold/30 text-gold/50 cursor-not-allowed"
