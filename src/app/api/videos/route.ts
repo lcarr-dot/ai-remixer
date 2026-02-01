@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       where: { userId: authUser.userId, enabled: true },
       select: { platformName: true },
     });
-    const platforms = userPlatforms.map((p) => p.platformName);
+    const platforms = userPlatforms.map((p: { platformName: string }) => p.platformName);
 
     // Get videos with all related data
     const videos = await prisma.video.findMany({
@@ -64,8 +64,8 @@ export async function GET(request: NextRequest) {
 
       // Add platform-specific data
       for (const platform of platforms) {
-        const post = video.platformPosts.find((p) => p.platform === platform);
-        const metrics = video.platformMetrics.find((m) => m.platform === platform);
+        const post = video.platformPosts.find((p: { platform: string }) => p.platform === platform);
+        const metrics = video.platformMetrics.find((m: { platform: string }) => m.platform === platform);
 
         row[`${platform}_posted`] = post?.posted ?? null;
         row[`${platform}_postedAt`] = post?.postedAt ?? null;
