@@ -4,21 +4,39 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/AppHeader";
 
+interface HookTrending {
+  hook: string;
+  example: string;
+  whyWorks: string;
+}
+
+interface ContentTrending {
+  topic: string;
+  description: string;
+  viewPotential: string;
+}
+
+interface TopVideo {
+  title: string;
+  views: string;
+  takeaway: string;
+}
+
 interface ResearchSnapshot {
   id: string;
   niche: string;
-  platforms: string[];
-  trendingThemes: string[];
-  hookPatterns: string[];
-  editingPatterns: string[];
-  postingPatterns: string[];
-  whyWorking: string;
-  actionableIdeas: string[];
+  sources: { youtube: number; reddit: number };
+  hooksTrending: HookTrending[];
+  contentTrending: ContentTrending[];
+  hashtagsTrending: string[];
+  topVideos: TopVideo[];
+  summary: string;
   createdAt: string;
 }
 
 interface User {
   businessName: string;
+  niche?: string;
 }
 
 export default function MarketResearchPage() {
@@ -26,11 +44,10 @@ export default function MarketResearchPage() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [niche, setNiche] = useState("");
   const [keywords, setKeywords] = useState("");
-  const [platforms, setPlatforms] = useState<string[]>(["youtube", "tiktok"]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [snapshot, setSnapshot] = useState<ResearchSnapshot | null>(null);
-  const [savedMessage, setSavedMessage] = useState("");
+  const [copiedHashtags, setCopiedHashtags] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -47,7 +64,6 @@ export default function MarketResearchPage() {
         return;
       }
       setUser(data.user);
-      // Pre-fill niche if available from user profile
       if (data.user.niche) {
         setNiche(data.user.niche);
       }
@@ -66,25 +82,13 @@ export default function MarketResearchPage() {
         setSnapshot(data.snapshot);
       }
     } catch {
-      // No existing snapshot, that's fine
+      // No existing snapshot
     }
-  };
-
-  const togglePlatform = (platform: string) => {
-    setPlatforms((prev) =>
-      prev.includes(platform)
-        ? prev.filter((p) => p !== platform)
-        : [...prev, platform]
-    );
   };
 
   const handleRunResearch = async () => {
     if (!niche.trim()) {
       setError("Please enter a niche");
-      return;
-    }
-    if (platforms.length === 0) {
-      setError("Please select at least one platform");
       return;
     }
 
@@ -95,7 +99,7 @@ export default function MarketResearchPage() {
       const response = await fetch("/api/market-research", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ niche, keywords, platforms }),
+        body: JSON.stringify({ niche, keywords }),
       });
 
       const data = await response.json();
@@ -112,25 +116,12 @@ export default function MarketResearchPage() {
     }
   };
 
-  const handleSaveToStorage = async () => {
-    if (!snapshot) return;
-
-    try {
-      const response = await fetch("/api/storage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "market_research",
-          data: snapshot,
-        }),
-      });
-
-      if (response.ok) {
-        setSavedMessage("Saved to storage!");
-        setTimeout(() => setSavedMessage(""), 3000);
-      }
-    } catch {
-      setError("Failed to save to storage");
+  const copyHashtags = () => {
+    if (snapshot?.hashtagsTrending) {
+      const text = snapshot.hashtagsTrending.map(h => `#${h}`).join(" ");
+      navigator.clipboard.writeText(text);
+      setCopiedHashtags(true);
+      setTimeout(() => setCopiedHashtags(false), 2000);
     }
   };
 
@@ -149,188 +140,165 @@ export default function MarketResearchPage() {
         <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-yellow-900/10 blur-[120px]" />
       </div>
 
-      <div className="relative z-10 flex-1 flex flex-col max-w-5xl mx-auto px-4 py-4 w-full overflow-hidden">
+      <div className="relative z-10 flex-1 flex flex-col max-w-6xl mx-auto px-4 py-3 w-full overflow-hidden">
         <AppHeader businessName={user?.businessName} />
 
-        <div className="flex-1 grid lg:grid-cols-3 gap-4 min-h-0 overflow-hidden">
-          {/* Input Panel */}
-          <div className="bg-surface rounded-xl border border-border/50 p-4 elegant-border overflow-auto">
-            <h2 className="text-base font-semibold text-cream mb-3">🔍 Market Research</h2>
+        {/* Header Banner */}
+        <div className="bg-gold/10 border border-gold/30 rounded-lg p-2 mb-3 text-center shrink-0">
+          <p className="text-sm text-gold">
+            🔥 <strong>Find What&apos;s Trending</strong> — Scans YouTube & Reddit for real-time trends in your niche
+          </p>
+        </div>
 
-            <div className="space-y-3">
+        <div className="flex-1 grid lg:grid-cols-4 gap-3 min-h-0 overflow-hidden">
+          {/* Input Panel */}
+          <div className="bg-surface rounded-xl border border-border/50 p-4 elegant-border flex flex-col">
+            <h2 className="text-base font-semibold text-cream mb-3">🔍 Discover Trends</h2>
+
+            <div className="space-y-3 flex-1">
               <div>
                 <label className="block text-xs font-medium text-gold/80 uppercase tracking-wider mb-1">
-                  Niche
+                  Your Niche <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="text"
                   value={niche}
                   onChange={(e) => setNiche(e.target.value)}
-                  placeholder="e.g., Finance & Investing"
+                  placeholder="e.g., Finance, Fitness, Tech..."
                   className="w-full px-3 py-2 bg-surface-light rounded-lg border border-border/30 text-cream placeholder-muted/50 focus:border-gold/50 focus:outline-none text-sm"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-gold/80 uppercase tracking-wider mb-1">
-                  Keywords (optional)
+                  Keywords <span className="text-muted">(optional)</span>
                 </label>
                 <input
                   type="text"
                   value={keywords}
                   onChange={(e) => setKeywords(e.target.value)}
-                  placeholder="stocks, crypto, side hustle..."
-                  className="w-full px-4 py-3 bg-surface-light rounded-xl border border-border/30 text-cream placeholder-muted/50 focus:border-gold/50 focus:outline-none"
+                  placeholder="stocks, crypto, AI..."
+                  className="w-full px-3 py-2 bg-surface-light rounded-lg border border-border/30 text-cream placeholder-muted/50 focus:border-gold/50 focus:outline-none text-sm"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-gold/80 uppercase tracking-wider mb-2">
-                  Platform Focus
-                </label>
-                <div className="flex gap-2">
-                  {["youtube", "tiktok"].map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => togglePlatform(p)}
-                      className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-all ${
-                        platforms.includes(p)
-                          ? "bg-gold/10 border-gold/50 text-gold"
-                          : "bg-surface-light border-border/30 text-muted hover:border-gold/30"
-                      }`}
-                    >
-                      {p === "youtube" ? "▶ YouTube" : "♪ TikTok"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {error && (
-                <div className="p-3 rounded-lg bg-red-900/20 border border-red-500/30 text-red-400 text-sm">
+                <div className="p-2 rounded-lg bg-red-900/20 border border-red-500/30 text-red-400 text-xs">
                   {error}
                 </div>
               )}
-
-              <button
-                onClick={handleRunResearch}
-                disabled={isLoading}
-                className={`w-full py-3 rounded-xl font-semibold uppercase tracking-wide transition-all ${
-                  isLoading
-                    ? "bg-gold/50 cursor-not-allowed text-forest"
-                    : "bg-gradient-to-r from-gold to-gold-light hover:opacity-90 text-forest"
-                }`}
-              >
-                {isLoading ? "Researching..." : "Run Research"}
-              </button>
             </div>
+
+            <button
+              onClick={handleRunResearch}
+              disabled={isLoading}
+              className={`w-full py-3 rounded-xl font-semibold uppercase tracking-wide transition-all mt-3 ${
+                isLoading
+                  ? "bg-gold/50 cursor-not-allowed text-forest"
+                  : "bg-gradient-to-r from-gold to-gold-light hover:opacity-90 text-forest"
+              }`}
+            >
+              {isLoading ? "Scanning..." : "🔥 Find Trends"}
+            </button>
+
+            {snapshot && (
+              <p className="text-[10px] text-muted text-center mt-2">
+                Sources: {snapshot.sources?.youtube || 0} YouTube • {snapshot.sources?.reddit || 0} Reddit
+              </p>
+            )}
           </div>
 
           {/* Results Panel */}
-          <div className="lg:col-span-2 bg-surface rounded-2xl border border-border/50 p-6 elegant-border">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-cream">Research Results</h2>
-              {snapshot && (
-                <div className="flex items-center gap-2">
-                  {savedMessage && (
-                    <span className="text-xs text-green-400">{savedMessage}</span>
-                  )}
-                  <button
-                    onClick={handleSaveToStorage}
-                    className="px-3 py-1.5 rounded-lg bg-gold/10 border border-gold/30 text-gold text-xs font-medium hover:bg-gold/20 transition-all"
-                  >
-                    💾 Save to Storage
-                  </button>
+          <div className="lg:col-span-3 grid grid-rows-3 gap-3 min-h-0 overflow-hidden">
+            {/* Hooks Trending */}
+            <div className="bg-surface rounded-xl border border-border/50 p-4 elegant-border overflow-hidden flex flex-col">
+              <h3 className="text-sm font-semibold text-gold mb-2 shrink-0">🎣 HOOKS TRENDING</h3>
+              {!snapshot ? (
+                <div className="flex-1 flex items-center justify-center text-muted text-sm">
+                  Run research to see trending hooks
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                  {snapshot.hooksTrending?.map((hook, i) => (
+                    <div key={i} className="p-2 bg-surface-light rounded-lg">
+                      <p className="text-sm text-cream font-medium">{hook.hook}</p>
+                      <p className="text-xs text-gold/70 mt-1">Ex: &quot;{hook.example}&quot;</p>
+                      <p className="text-xs text-muted mt-1">{hook.whyWorks}</p>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
 
-            {!snapshot ? (
-              <div className="text-center py-12">
-                <div className="text-4xl mb-3 opacity-40">🔍</div>
-                <p className="text-muted">Run research to see trends and ideas</p>
+            {/* Content Trending */}
+            <div className="bg-surface rounded-xl border border-border/50 p-4 elegant-border overflow-hidden flex flex-col">
+              <h3 className="text-sm font-semibold text-gold mb-2 shrink-0">📈 CONTENT TRENDING</h3>
+              {!snapshot ? (
+                <div className="flex-1 flex items-center justify-center text-muted text-sm">
+                  Run research to see trending content
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                  {snapshot.contentTrending?.map((content, i) => (
+                    <div key={i} className="p-2 bg-surface-light rounded-lg flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm text-cream font-medium">{content.topic}</p>
+                        <p className="text-xs text-muted mt-1">{content.description}</p>
+                      </div>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full ml-2 shrink-0 ${
+                        content.viewPotential === "High" 
+                          ? "bg-green-500/20 text-green-400" 
+                          : "bg-yellow-500/20 text-yellow-400"
+                      }`}>
+                        {content.viewPotential}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Hashtags Trending */}
+            <div className="bg-surface rounded-xl border border-border/50 p-4 elegant-border overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between mb-2 shrink-0">
+                <h3 className="text-sm font-semibold text-gold"># HASHTAGS TRENDING</h3>
+                {snapshot?.hashtagsTrending && (
+                  <button
+                    onClick={copyHashtags}
+                    className={`text-xs px-2 py-1 rounded transition-all ${
+                      copiedHashtags
+                        ? "bg-green-900/30 text-green-400"
+                        : "bg-surface-light text-gold/70 hover:text-gold"
+                    }`}
+                  >
+                    {copiedHashtags ? "✓ Copied!" : "Copy All"}
+                  </button>
+                )}
               </div>
-            ) : (
-              <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
-                {/* Trending Themes */}
-                <div>
-                  <h3 className="text-sm font-semibold text-gold mb-2">🔥 Trending Themes</h3>
+              {!snapshot ? (
+                <div className="flex-1 flex items-center justify-center text-muted text-sm">
+                  Run research to see trending hashtags
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto">
                   <div className="flex flex-wrap gap-2">
-                    {snapshot.trendingThemes.map((theme, i) => (
+                    {snapshot.hashtagsTrending?.map((tag, i) => (
                       <span
                         key={i}
-                        className="px-3 py-1 rounded-full text-xs bg-gold/10 text-gold border border-gold/20"
+                        className="px-2 py-1 rounded text-xs bg-gold/10 text-gold border border-gold/20"
                       >
-                        {theme}
+                        #{tag}
                       </span>
                     ))}
                   </div>
+                  {snapshot.summary && (
+                    <div className="mt-3 p-2 bg-surface-light/50 rounded-lg border border-border/20">
+                      <p className="text-xs text-cream/80">{snapshot.summary}</p>
+                    </div>
+                  )}
                 </div>
-
-                {/* Hook Patterns */}
-                <div>
-                  <h3 className="text-sm font-semibold text-gold mb-2">🎣 Hook Patterns</h3>
-                  <ul className="space-y-1">
-                    {snapshot.hookPatterns.map((pattern, i) => (
-                      <li key={i} className="text-sm text-cream/80 flex items-start gap-2">
-                        <span className="text-gold/60">•</span>
-                        {pattern}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Editing Patterns */}
-                <div>
-                  <h3 className="text-sm font-semibold text-gold mb-2">✂️ Editing Patterns</h3>
-                  <ul className="space-y-1">
-                    {snapshot.editingPatterns.map((pattern, i) => (
-                      <li key={i} className="text-sm text-cream/80 flex items-start gap-2">
-                        <span className="text-gold/60">•</span>
-                        {pattern}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Posting Patterns */}
-                <div>
-                  <h3 className="text-sm font-semibold text-gold mb-2">📅 Posting Patterns</h3>
-                  <ul className="space-y-1">
-                    {snapshot.postingPatterns.map((pattern, i) => (
-                      <li key={i} className="text-sm text-cream/80 flex items-start gap-2">
-                        <span className="text-gold/60">•</span>
-                        {pattern}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Why It's Working */}
-                <div>
-                  <h3 className="text-sm font-semibold text-gold mb-2">💡 Why It&apos;s Working</h3>
-                  <p className="text-sm text-cream/80 bg-surface-light p-3 rounded-lg">
-                    {snapshot.whyWorking}
-                  </p>
-                </div>
-
-                {/* Actionable Ideas */}
-                <div>
-                  <h3 className="text-sm font-semibold text-gold mb-2">🚀 10 Actionable Ideas</h3>
-                  <ol className="space-y-2">
-                    {snapshot.actionableIdeas.map((idea, i) => (
-                      <li key={i} className="text-sm text-cream/80 flex items-start gap-2 bg-surface-light p-2 rounded-lg">
-                        <span className="text-gold font-bold">{i + 1}.</span>
-                        {idea}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-
-                <p className="text-xs text-muted text-center pt-4">
-                  Generated {new Date(snapshot.createdAt).toLocaleString()}
-                </p>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>

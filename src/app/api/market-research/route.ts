@@ -2,20 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import jwt from "jsonwebtoken";
 import { put, list } from "@vercel/blob";
-import { z } from "zod";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || "";
 const JWT_SECRET = process.env.JWT_SECRET || "three-seconds-secret-key-change-in-production";
-
-// Zod schema for validation
-const researchResultSchema = z.object({
-  trendingThemes: z.array(z.string()),
-  hookPatterns: z.array(z.string()),
-  editingPatterns: z.array(z.string()),
-  postingPatterns: z.array(z.string()),
-  whyWorking: z.string(),
-  actionableIdeas: z.array(z.string()),
-});
 
 function getUserIdFromRequest(request: NextRequest): string | null {
   const token = request.cookies.get("auth_token")?.value;
@@ -26,6 +16,89 @@ function getUserIdFromRequest(request: NextRequest): string | null {
   } catch {
     return null;
   }
+}
+
+// Fetch trending YouTube videos for a topic
+async function fetchYouTubeTrending(topic: string): Promise<{
+  videos: { title: string; views: string; channel: string }[];
+  error?: string;
+}> {
+  if (!YOUTUBE_API_KEY) {
+    return { videos: [], error: "YouTube API key not configured" };
+  }
+
+  try {
+    // Search for recent popular videos in this topic
+    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&q=${encodeURIComponent(topic)}&order=viewCount&maxResults=15&publishedAfter=${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()}&key=${YOUTUBE_API_KEY}`;
+    
+    const searchRes = await fetch(searchUrl);
+    const searchData = await searchRes.json();
+
+    if (!searchData.items || searchData.items.length === 0) {
+      return { videos: [] };
+    }
+
+    // Get video statistics
+    const videoIds = searchData.items.map((item: { id: { videoId: string } }) => item.id.videoId).join(",");
+    const statsUrl = `https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id=${videoIds}&key=${YOUTUBE_API_KEY}`;
+    
+    const statsRes = await fetch(statsUrl);
+    const statsData = await statsRes.json();
+
+    const videos = statsData.items?.map((video: {
+      snippet: { title: string; channelTitle: string };
+      statistics: { viewCount: string };
+    }) => ({
+      title: video.snippet.title,
+      views: formatViews(parseInt(video.statistics.viewCount || "0")),
+      channel: video.snippet.channelTitle,
+    })) || [];
+
+    return { videos };
+  } catch (error) {
+    console.error("YouTube API error:", error);
+    return { videos: [], error: "Failed to fetch YouTube data" };
+  }
+}
+
+// Fetch trending Reddit posts
+async function fetchRedditTrending(topic: string): Promise<{
+  posts: { title: string; upvotes: number; subreddit: string }[];
+  error?: string;
+}> {
+  try {
+    // Search Reddit's public JSON API
+    const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(topic)}&sort=hot&limit=20&t=week`;
+    
+    const res = await fetch(url, {
+      headers: { "User-Agent": "three-seconds-app/1.0" }
+    });
+    
+    if (!res.ok) {
+      return { posts: [], error: "Reddit API unavailable" };
+    }
+
+    const data = await res.json();
+    
+    const posts = data.data?.children?.map((child: {
+      data: { title: string; ups: number; subreddit: string }
+    }) => ({
+      title: child.data.title,
+      upvotes: child.data.ups,
+      subreddit: child.data.subreddit,
+    })) || [];
+
+    return { posts };
+  } catch (error) {
+    console.error("Reddit API error:", error);
+    return { posts: [], error: "Failed to fetch Reddit data" };
+  }
+}
+
+function formatViews(views: number): string {
+  if (views >= 1000000) return `${(views / 1000000).toFixed(1)}M`;
+  if (views >= 1000) return `${(views / 1000).toFixed(0)}K`;
+  return views.toString();
 }
 
 // GET - Get latest market research snapshot
@@ -42,7 +115,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ snapshot: null });
     }
 
-    // Get the most recent snapshot
     const sortedBlobs = blobs.sort((a, b) => 
       new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
     );
@@ -57,7 +129,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Run new market research
+// POST - Run new market research with real data
 export async function POST(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
@@ -65,35 +137,67 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { niche, keywords, platforms } = await request.json();
+    const { niche, keywords } = await request.json();
 
     if (!niche) {
       return NextResponse.json({ error: "Niche is required" }, { status: 400 });
     }
 
-    const platformStr = platforms?.join(" and ") || "YouTube and TikTok";
-    const keywordsStr = keywords ? `Focus keywords: ${keywords}` : "";
+    const searchTopic = keywords ? `${niche} ${keywords}` : niche;
 
-    const prompt = `You are a social media trend analyst. Analyze current trends for content creators in the "${niche}" niche on ${platformStr}. ${keywordsStr}
+    // Fetch real data from multiple sources
+    const [youtubeData, redditData] = await Promise.all([
+      fetchYouTubeTrending(searchTopic),
+      fetchRedditTrending(searchTopic),
+    ]);
 
-Return your analysis as valid JSON with this exact structure:
+    // Build context from real data
+    const realDataContext = `
+REAL DATA FROM SOURCES:
+
+=== YOUTUBE TRENDING VIDEOS (Last 30 Days) ===
+${youtubeData.videos.length > 0 
+  ? youtubeData.videos.map((v, i) => `${i + 1}. "${v.title}" - ${v.views} views (${v.channel})`).join("\n")
+  : "No YouTube data available"}
+
+=== REDDIT HOT POSTS (This Week) ===
+${redditData.posts.length > 0
+  ? redditData.posts.map((p, i) => `${i + 1}. "${p.title}" - ${p.upvotes} upvotes (r/${p.subreddit})`).join("\n")
+  : "No Reddit data available"}
+`;
+
+    const prompt = `You are analyzing REAL trending data to help a content creator in the "${niche}" niche.
+
+${realDataContext}
+
+Based on this REAL data, extract:
+
+1. HOOKS TRENDING - What hook styles/formats are working? Look at video titles and post titles.
+2. CONTENT TRENDING - What topics/themes are getting views? Be specific.
+3. HASHTAGS TRENDING - What hashtags would work based on these trends?
+
+Return JSON:
 {
-  "trendingThemes": ["theme1", "theme2", ...] (5-7 trending themes/topics),
-  "hookPatterns": ["pattern1", "pattern2", ...] (5-7 hook patterns that are working),
-  "editingPatterns": ["pattern1", "pattern2", ...] (4-5 editing styles that perform well),
-  "postingPatterns": ["pattern1", "pattern2", ...] (3-4 posting time/frequency patterns),
-  "whyWorking": "A 2-3 sentence explanation of why these trends are working right now",
-  "actionableIdeas": ["idea1", "idea2", ...] (exactly 10 specific, actionable video ideas - structural concepts, not copies)
+  "hooksTrending": [
+    {"hook": "The exact hook format/style", "example": "Real example from the data", "whyWorks": "Why this works"}
+  ] (5-7 hooks),
+  "contentTrending": [
+    {"topic": "Specific topic", "description": "What angle is working", "viewPotential": "High/Medium"}
+  ] (5-7 topics),
+  "hashtagsTrending": ["hashtag1", "hashtag2", ...] (10-15 hashtags WITHOUT #),
+  "topVideos": [
+    {"title": "Title", "views": "Views", "takeaway": "What to learn from this"}
+  ] (top 5 from YouTube data),
+  "summary": "2-3 sentence summary of what's trending and why"
 }
 
-Be specific and actionable. Focus on what's working RIGHT NOW. Return valid JSON only.`;
+Use the ACTUAL data above. Be specific and reference real titles/topics you see. Return valid JSON only.`;
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
     
     let result = await model.generateContent(prompt);
     let responseText = result.response.text();
 
-    // Extract JSON from response
     let parsedResult;
     try {
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -102,30 +206,27 @@ Be specific and actionable. Focus on what's working RIGHT NOW. Return valid JSON
       } else {
         throw new Error("No JSON found");
       }
-      
-      // Validate with zod
-      researchResultSchema.parse(parsedResult);
-    } catch (parseError) {
-      // Retry with repair prompt
-      const repairPrompt = `${prompt}\n\nIMPORTANT: Return ONLY valid JSON, no markdown, no explanation.`;
-      result = await model.generateContent(repairPrompt);
-      responseText = result.response.text();
-      
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    } catch {
+      // Retry
+      const retryResult = await model.generateContent(prompt + "\n\nReturn ONLY valid JSON.");
+      const retryText = retryResult.response.text();
+      const jsonMatch = retryText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         parsedResult = JSON.parse(jsonMatch[0]);
-        researchResultSchema.parse(parsedResult);
       } else {
         throw new Error("Failed to parse research results");
       }
     }
 
-    // Create snapshot
+    // Create snapshot with real data sources
     const snapshot = {
       id: `research_${Date.now()}`,
       niche,
       keywords: keywords || "",
-      platforms: platforms || ["youtube", "tiktok"],
+      sources: {
+        youtube: youtubeData.videos.length,
+        reddit: redditData.posts.length,
+      },
       ...parsedResult,
       createdAt: new Date().toISOString(),
     };
