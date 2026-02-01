@@ -28,7 +28,6 @@ async function fetchYouTubeTrending(topic: string): Promise<{
   }
 
   try {
-    // Search for recent popular videos in this topic
     const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&q=${encodeURIComponent(topic)}&order=viewCount&maxResults=15&publishedAfter=${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()}&key=${YOUTUBE_API_KEY}`;
     
     const searchRes = await fetch(searchUrl);
@@ -38,7 +37,6 @@ async function fetchYouTubeTrending(topic: string): Promise<{
       return { videos: [] };
     }
 
-    // Get video statistics
     const videoIds = searchData.items.map((item: { id: { videoId: string } }) => item.id.videoId).join(",");
     const statsUrl = `https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id=${videoIds}&key=${YOUTUBE_API_KEY}`;
     
@@ -67,7 +65,6 @@ async function fetchRedditTrending(topic: string): Promise<{
   error?: string;
 }> {
   try {
-    // Search Reddit's public JSON API
     const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(topic)}&sort=hot&limit=20&t=week`;
     
     const res = await fetch(url, {
@@ -129,7 +126,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Run new market research with real data
+// POST - Run new market research OR chat about results
 export async function POST(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
@@ -137,7 +134,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { niche, keywords } = await request.json();
+    const body = await request.json();
+    
+    // Check if this is a chat message
+    if (body.type === "chat") {
+      return handleChat(body.message, body.researchContext);
+    }
+
+    // Otherwise, run new research
+    const { niche, keywords } = body;
 
     if (!niche) {
       return NextResponse.json({ error: "Niche is required" }, { status: 400 });
@@ -145,13 +150,11 @@ export async function POST(request: NextRequest) {
 
     const searchTopic = keywords ? `${niche} ${keywords}` : niche;
 
-    // Fetch real data from multiple sources
     const [youtubeData, redditData] = await Promise.all([
       fetchYouTubeTrending(searchTopic),
       fetchRedditTrending(searchTopic),
     ]);
 
-    // Build context from real data
     const realDataContext = `
 REAL DATA FROM SOURCES:
 
@@ -207,7 +210,6 @@ Use the ACTUAL data above. Be specific and reference real titles/topics you see.
         throw new Error("No JSON found");
       }
     } catch {
-      // Retry
       const retryResult = await model.generateContent(prompt + "\n\nReturn ONLY valid JSON.");
       const retryText = retryResult.response.text();
       const jsonMatch = retryText.match(/\{[\s\S]*\}/);
@@ -218,7 +220,6 @@ Use the ACTUAL data above. Be specific and reference real titles/topics you see.
       }
     }
 
-    // Create snapshot with real data sources
     const snapshot = {
       id: `research_${Date.now()}`,
       niche,
@@ -231,7 +232,6 @@ Use the ACTUAL data above. Be specific and reference real titles/topics you see.
       createdAt: new Date().toISOString(),
     };
 
-    // Save to blob storage
     await put(
       `market-research/${userId}/${snapshot.id}.json`,
       JSON.stringify(snapshot),
@@ -243,6 +243,38 @@ Use the ACTUAL data above. Be specific and reference real titles/topics you see.
     console.error("Market research error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Research failed" },
+      { status: 500 }
+    );
+  }
+}
+
+// Handle chat messages about research results
+async function handleChat(message: string, researchContext: string) {
+  try {
+    const prompt = `You are a trend research assistant helping a content creator understand and narrow down trends.
+
+Here is the research data they're looking at:
+${researchContext}
+
+User's question/request: "${message}"
+
+Help them by:
+- Answering their specific question about the trends
+- Suggesting specific video ideas if they ask
+- Narrowing down hooks or topics based on their criteria
+- Providing actionable advice
+
+Be concise and specific. Reference the actual data when possible. Give direct, helpful answers.`;
+
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+    const result = await model.generateContent(prompt);
+    const response = result.response.text();
+
+    return NextResponse.json({ response });
+  } catch (error) {
+    console.error("Chat error:", error);
+    return NextResponse.json(
+      { error: "Failed to process your question" },
       { status: 500 }
     );
   }
