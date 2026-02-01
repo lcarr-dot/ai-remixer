@@ -143,23 +143,23 @@ export default function MarketResearchPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background classic-pattern">
+    <div className="h-screen bg-background classic-pattern overflow-hidden flex flex-col">
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-900/20 blur-[120px]" />
         <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-yellow-900/10 blur-[120px]" />
       </div>
 
-      <div className="relative z-10 max-w-5xl mx-auto px-6 py-6">
+      <div className="relative z-10 flex-1 flex flex-col max-w-5xl mx-auto px-4 py-4 w-full overflow-hidden">
         <AppHeader businessName={user?.businessName} />
 
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="flex-1 grid lg:grid-cols-3 gap-4 min-h-0 overflow-hidden">
           {/* Input Panel */}
-          <div className="bg-surface rounded-2xl border border-border/50 p-6 elegant-border">
-            <h2 className="text-lg font-semibold text-cream mb-4">🔍 Market Research</h2>
+          <div className="bg-surface rounded-xl border border-border/50 p-4 elegant-border overflow-auto">
+            <h2 className="text-base font-semibold text-cream mb-3">🔍 Market Research</h2>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gold/80 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-medium text-gold/80 uppercase tracking-wider mb-1">
                   Niche
                 </label>
                 <input
@@ -167,12 +167,12 @@ export default function MarketResearchPage() {
                   value={niche}
                   onChange={(e) => setNiche(e.target.value)}
                   placeholder="e.g., Finance & Investing"
-                  className="w-full px-4 py-3 bg-surface-light rounded-xl border border-border/30 text-cream placeholder-muted/50 focus:border-gold/50 focus:outline-none"
+                  className="w-full px-3 py-2 bg-surface-light rounded-lg border border-border/30 text-cream placeholder-muted/50 focus:border-gold/50 focus:outline-none text-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gold/80 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-medium text-gold/80 uppercase tracking-wider mb-1">
                   Keywords (optional)
                 </label>
                 <input
